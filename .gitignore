@@ -1,0 +1,6 @@
+# IntelliJ IDEA project files for the 'Form application backend' project
+.idea/
+
+# OS generated files (good practice to include here too)
+.DS_Store
+Thumbs.db

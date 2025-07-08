@@ -1,0 +1,44 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencies
+/node_modules
+
+# Production build output
+/build               # <-- Add this!
+/dist
+/dist-ssr
+
+# Environment variables (CRITICAL for sensitive data)
+.env                 # <-- Add this! (or at least .env.*.local)
+.env.*.local         # <-- Add this!
+.env.local           # <-- Add this!
+.env.development.local # <-- Add this!
+.env.test.local      # <-- Add this!
+.env.production.local# <-- Add this!
+
+# Testing
+/coverage            # <-- Add this!
+
+# Caching
+.eslintcache         # <-- Add this!
+.parcel-cache/       # Good to have if you ever use Parcel
+.cache/              # <-- Add this! (general cache dir)
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db            # <-- Add this for Windows users
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
