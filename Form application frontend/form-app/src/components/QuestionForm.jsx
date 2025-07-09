@@ -47,9 +47,9 @@ const QuestionForm = () => {
   };
 
   return (
-    <div class="div-wrapping-container">
+    <div className="div-wrapping-container">
       <h1>Form</h1>
-      <form class="form-class" onSubmit={handleSubmit}>
+      <form className="form-class" onSubmit={handleSubmit}>
         {questions.map((q) => (
           <div key={q.id} style={{ marginBottom: "1rem" }}>
             <label>{q.questionText}</label>

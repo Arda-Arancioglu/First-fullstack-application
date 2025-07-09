@@ -29,12 +29,11 @@ function LandingP({ onLogin }) {
   };
 
   return (
-    <div class="div-wrapping-container">
+    <div className="div-wrapping-container">
       <h1>Login</h1>
       <form onSubmit={handleSubmit}>
         <div className="mb-4">
           <input
-            class="red"
             type="text"
             placeholder="Username"
             value={username}
