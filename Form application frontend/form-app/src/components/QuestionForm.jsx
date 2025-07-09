@@ -1,6 +1,7 @@
 // src/QuestionForm.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import './QuestionFormStyle.css';
 
 const QuestionForm = () => {
   const [questions, setQuestions] = useState([]);
@@ -42,7 +43,7 @@ const QuestionForm = () => {
 
   return (
     <div>
-      <form onSubmit={handleSubmit}>
+      <form class="form-class" onSubmit={handleSubmit}>
         {questions.map((q) => (
           <div key={q.id} style={{ marginBottom: "1rem" }}>
             <label>{q.questionText}</label>

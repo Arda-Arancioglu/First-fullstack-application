@@ -23,9 +23,10 @@ a:hover {
 }
 
 body {
-  margin: 0;
+  margin: 70px 0px 0px 0px;
   display: flex;
-  place-items: center;
+  place-items: start;
+  justify-content: center;
   min-width: 320px;
   min-height: 100vh;
 }
