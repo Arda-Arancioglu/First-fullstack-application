@@ -5,9 +5,9 @@ import './QuestionFormStyle.css';
 
 const QuestionForm = () => {
   const [questions, setQuestions] = useState([]);
-  const [answers, setAnswers]     = useState({});
- const [status, setStatus]       = useState(null);         // null | "saving" | "success" | "error"
- const [savedData, setSavedData] = useState(null);         // store server response
+  const [answers, setAnswers] = useState({});
+  const [status, setStatus] = useState(null);         // null | "saving" | "success" | "error"
+  const [savedData, setSavedData] = useState(null);   // store server response
 
   useEffect(() => {
     axios
@@ -24,15 +24,20 @@ const QuestionForm = () => {
     e.preventDefault();
     setStatus("saving");
 
+    const userId = localStorage.getItem("userId");
+
     const payload = Object.entries(answers).map(([id, resp]) => ({
       question: { id: +id },
       response: resp,
+      user: { id: +userId } // ✅ include user ID
     }));
+
+    console.log("Sending payload:", payload);
 
     axios
       .post("http://localhost:8080/answers", payload)
       .then((res) => {
-       setSavedData(res.data);
+        setSavedData(res.data);
         setStatus("success");
       })
       .catch((err) => {
@@ -61,18 +66,17 @@ const QuestionForm = () => {
         </button>
       </form>
 
-     
-     {status === "success" && (
-       <div style={{ marginTop: 20, color: "green" }}>
-         ✅ Your answers were saved!
-         <pre>{JSON.stringify(savedData, null, 2)}</pre>
-       </div>
-     )}
-     {status === "error" && (
-       <div style={{ marginTop: 20, color: "red" }}>
-         ❌ Oops! Something went wrong.
-       </div>
-     )}
+      {status === "success" && (
+        <div style={{ marginTop: 20, color: "green" }}>
+          ✅ Your answers were saved!
+          <pre>{JSON.stringify(savedData, null, 2)}</pre>
+        </div>
+      )}
+      {status === "error" && (
+        <div style={{ marginTop: 20, color: "red" }}>
+          ❌ Oops! Something went wrong.
+        </div>
+      )}
     </div>
   );
 };

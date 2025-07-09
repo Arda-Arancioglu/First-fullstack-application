@@ -19,4 +19,8 @@ public class Answer {
 
     @Column(columnDefinition = "TEXT")
     private String response;
+
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "user_id")
+    private User user;
 }
