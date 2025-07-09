@@ -2,23 +2,13 @@
 <h1>FIRST-FULLSTACK-APPLICATION</h1>
 <p><em>Empowering Seamless Fullstack Innovation at Scale</em></p>
 
-![last-commit](https://img.shields.io/github/last-commit/Arda-Arancioglu/First-fullstack-application?style=flat&logo=git&logoColor=white&color=0080ff)
-![repo-top-language](https://img.shields.io/github/languages/top/Arda-Arancioglu/First-fullstack-application?style=flat&color=0080ff)
-![repo-language-count](https://img.shields.io/github/languages/count/Arda-Arancioglu/First-fullstack-application?style=flat&color=0080ff)
+Last Commit: (Dynamic - check GitHub for latest)
+Top Language: (Dynamic - check GitHub for top language)
+Language Count: (Dynamic - check GitHub for language count)
 <p><em>Built with the tools and technologies:</em></p>
-![JSON](https://img.shields.io/badge/JSON-000000.svg?style=flat&logo=JSON&logoColor=white)
-![Markdown](https://img.shields.io/badge/Markdown-000000.svg?style=flat&logo=Markdown&logoColor=white)
-![npm](https://img.shields.io/badge/npm-CB3837.svg?style=flat&logo=npm&logoColor=white)
-![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E.svg?style=flat&logo=JavaScript&logoColor=black)
-![Org](https://img.shields.io/badge/Org-77AA99.svg?style=flat&logo=Org&logoColor=white)
-![Gradle](https://img.shields.io/badge/Gradle-02303A.svg?style=flat&logo=Gradle&logoColor=white)
+JSON | Markdown | npm | JavaScript |  Gradle
 <br>
-![React](https://img.shields.io/badge/React-61DAFB.svg?style=flat&logo=React&logoColor=black)
-![XML](https://img.shields.io/badge/XML-005FAD.svg?style=flat&logo=XML&logoColor=white)
-![Vite](https://img.shields.io/badge/Vite-646CFF.svg?style=flat&logo=Vite&logoColor=white)
-![bat](https://img.shields.io/badge/bat-31369E.svg?style=flat&logo=bat&logoColor=white)
-![ESLint](https://img.shields.io/badge/ESLint-4B32C3.svg?style=flat&logo=ESLint&logoColor=white)
-![Axios](https://img.shields.io/badge/Axios-5A29E4.svg?style=flat&logo=Axios&logoColor=white)
+React | XML | Vite | ESLint | Axios
 </div>
 <br>
 <hr>
