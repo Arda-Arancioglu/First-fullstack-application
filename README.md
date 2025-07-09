@@ -2,9 +2,10 @@
 <h1>FIRST-FULLSTACK-APPLICATION</h1>
 <p><em>Empowering Seamless Fullstack Innovation at Scale</em></p>
 
-Last Commit: (Dynamic - check GitHub for latest)
-Top Language: (Dynamic - check GitHub for top language)
-Language Count: (Dynamic - check GitHub for language count)
+![last-commit](https://img.shields.io/github/last-commit/Arda-Arancioglu/First-fullstack-application?style=flat&logo=git&logoColor=white&color=0080ff)
+![repo-top-language](https://img.shields.io/github/languages/top/Arda-Arancioglu/First-fullstack-application?style=flat&color=0080ff)
+![repo-language-count](https://img.shields.io/github/languages/count/Arda-Arancioglu/First-fullstack-application?style=flat&color=0080ff)
+
 <p><em>Built with the tools and technologies:</em></p>
 JSON | Markdown | npm | JavaScript |  Gradle
 <br>
@@ -20,7 +21,7 @@ React | XML | Vite | ESLint | Axios
     * [Prerequisites](#prerequisites)
     * [Installation](#installation)
     * [Usage](#usage)
-    * [Testing](#testing)
+    
 
 <hr>
 
