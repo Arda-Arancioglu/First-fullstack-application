@@ -23,7 +23,6 @@ a:hover {
 }
 
 body {
-  margin: 70px 0px 0px 0px;
   display: flex;
   place-items: start;
   justify-content: center;
@@ -32,8 +31,12 @@ body {
 }
 
 h1 {
+  min-width: 300px;
+  margin: 10px 0px 20px 0px;
   font-size: 3.2em;
   line-height: 1.1;
+  color: hsl(0, 8%, 20%);
+  text-align: center;
 }
 
 button {
@@ -53,6 +56,16 @@ button:hover {
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
+}
+.div-wrapping-container {
+  min-width: 100px;
+  min-height: 100px;
+  margin: 70px 0px 0px 0px;
+  background-color: hsla(236, 8%, 39%, 0.627);
+  border-radius: 40px;
+  box-shadow: 10px 10px 10px #3f1010;
+  padding: 15px;
+  text-align: center;
 }
 
 @media (prefers-color-scheme: light) {
