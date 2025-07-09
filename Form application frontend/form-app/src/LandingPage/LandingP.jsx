@@ -7,26 +7,19 @@ function LandingP({ onLogin }) {
   const [error, setError]     = useState(null);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError(null);
+  e.preventDefault();
+  setError(null);
 
-    try {
-      // Send login request
-      const res = await axios.post("http://localhost:8080/login", {
-        username,
-        password,
-      });
+  try {
+    const res = await axios.post("http://localhost:8080/login", { username, password });
+    localStorage.setItem("token", res.data.token);       
+    localStorage.setItem("userId", res.data.userId);     
+    onLogin();
+  } catch {
+    setError("Invalid username or password");
+  }
+};
 
-      // Save user ID in localStorage
-      const user = res.data; // expects: { id, username }
-      localStorage.setItem("userId", user.id);
-
-      // Proceed to form
-      onLogin();
-    } catch {
-      setError("Invalid username or password");
-    }
-  };
 
   return (
     <div className="div-wrapping-container">
