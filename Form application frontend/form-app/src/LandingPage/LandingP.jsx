@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { Link } from 'react-router-dom';
 
 function LandingP({ onLogin }) {
   const [username, setUsername] = useState("");
@@ -43,10 +44,15 @@ function LandingP({ onLogin }) {
             required
           />
         </div>
-        <button type="submit">Log In</button>
+        <button  className="form-button" type="submit">Log In</button>
+        <p>
+        Don't have an account? <Link to="/register">Register here</Link>
+        </p>
       </form>
       {error && <div>{error}</div>}
+      
     </div>
+    
   );
 }
 

@@ -38,6 +38,9 @@ h1 {
   color: hsl(0, 8%, 20%);
   text-align: center;
 }
+.form-button {
+  margin-top: 15px;
+}
 
 button {
   border-radius: 8px;
