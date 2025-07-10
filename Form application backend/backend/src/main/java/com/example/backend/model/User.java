@@ -1,15 +1,21 @@
-// src/main/java/com/example/backend/model/User.java
+// User.java
 package com.example.backend.model;
 
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+
 import jakarta.persistence.*;
-import lombok.*;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
+@Table(name = "users") // Renamed from 'user' to avoid potential SQL keyword conflicts
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "users")    // “user” is a reserved word in some DBs
 public class User {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -18,5 +24,13 @@ public class User {
     private String username;
 
     @Column(nullable = false)
-    private String password; // plaintext for now; hash it later!
+    private String password;
+
+    @ManyToMany(fetch = FetchType.EAGER) // Eagerly load roles
+    @JoinTable(
+            name = "user_roles",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+    private Set<Role> roles = new HashSet<>();
 }
