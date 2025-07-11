@@ -4,16 +4,16 @@ package com.example.backend;
 import com.example.backend.model.ERole;
 import com.example.backend.model.Role;
 import com.example.backend.model.Question;
-import com.example.backend.model.User; // NEW IMPORT for User model
+import com.example.backend.model.User;
 import com.example.backend.repository.RoleRepository;
 import com.example.backend.repository.QuestionRepository;
-import com.example.backend.repository.UserRepository; // NEW IMPORT for UserRepository
+import com.example.backend.repository.UserRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.annotation.Order;
-import org.springframework.security.crypto.password.PasswordEncoder; // NEW IMPORT for PasswordEncoder
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -26,7 +26,7 @@ public class BackendApplication {
     }
 
     /**
-     * CommandLineRunner to pre-populate roles and a test user in the database.
+     * CommandLineRunner to pre-populate roles and test users (USER and ADMIN) in the database.
      * This runs first to ensure roles are available before user creation.
      *
      * @param roleRepository The repository for Role entities.
@@ -65,7 +65,7 @@ public class BackendApplication {
                 testUser.setPassword(passwordEncoder.encode("test")); // Hash "test" before storing
 
                 Set<Role> roles = new HashSet<>();
-                if (userRole != null) { // Ensure userRole was found/created
+                if (userRole != null) {
                     roles.add(userRole);
                 }
                 testUser.setRoles(roles);
@@ -75,12 +75,33 @@ public class BackendApplication {
             } else {
                 System.out.println("Test user 'test' already exists.");
             }
+
+            // 3. Create Admin User (only if not already present)
+            if (userRepository.findByUsername("admin").isEmpty()) {
+                User adminUser = new User();
+                adminUser.setUsername("admin");
+                adminUser.setPassword(passwordEncoder.encode("admin")); // Hash "admin" before storing
+
+                Set<Role> roles = new HashSet<>();
+                if (userRole != null) { // Admin should also have USER role for broader access
+                    roles.add(userRole);
+                }
+                if (adminRole != null) {
+                    roles.add(adminRole);
+                }
+                adminUser.setRoles(roles);
+
+                userRepository.save(adminUser);
+                System.out.println("Admin user 'admin' inserted with hashed password and ROLE_ADMIN.");
+            } else {
+                System.out.println("Admin user 'admin' already exists.");
+            }
         };
     }
 
     /**
      * CommandLineRunner to insert sample question data into the database.
-     * This runs after roles and test user are ensured to be present.
+     * This runs after roles and test users are ensured to be present.
      *
      * @param questionRepository The repository for Question entities.
      * @return A CommandLineRunner instance.
