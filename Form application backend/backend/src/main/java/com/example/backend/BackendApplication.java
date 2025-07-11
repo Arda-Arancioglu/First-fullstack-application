@@ -15,6 +15,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -25,94 +26,59 @@ public class BackendApplication {
         SpringApplication.run(BackendApplication.class, args);
     }
 
-    /**
-     * CommandLineRunner to pre-populate roles and test users (USER and ADMIN) in the database.
-     * This runs first to ensure roles are available before user creation.
-     *
-     * @param roleRepository The repository for Role entities.
-     * @param userRepository The repository for User entities.
-     * @param passwordEncoder The PasswordEncoder to hash the test user's password.
-     * @return A CommandLineRunner instance.
-     */
     @Bean
-    @Order(1) // This CommandLineRunner will run first
-    public CommandLineRunner initialDataSetup(RoleRepository roleRepository,
-                                              UserRepository userRepository,
-                                              PasswordEncoder passwordEncoder) {
+    @Order(1) // Ensure roles and basic users are set up first
+    public CommandLineRunner initialUserAndRoleSetup(RoleRepository roleRepository,
+                                                     UserRepository userRepository,
+                                                     PasswordEncoder passwordEncoder) {
         return args -> {
-            // 1. Ensure Roles Exist First
-            Role userRole = null;
-            Role adminRole = null;
+            Role userRole = roleRepository.findByName(ERole.ROLE_USER)
+                    .orElseGet(() -> roleRepository.save(new Role(null, ERole.ROLE_USER)));
+            System.out.println("Ensured ROLE_USER exists.");
 
-            if (roleRepository.findByName(ERole.ROLE_USER).isEmpty()) {
-                userRole = roleRepository.save(new Role(null, ERole.ROLE_USER));
-                System.out.println("Added ROLE_USER to database.");
-            } else {
-                userRole = roleRepository.findByName(ERole.ROLE_USER).get();
-            }
+            Role adminRole = roleRepository.findByName(ERole.ROLE_ADMIN)
+                    .orElseGet(() -> roleRepository.save(new Role(null, ERole.ROLE_ADMIN)));
+            System.out.println("Ensured ROLE_ADMIN exists.");
 
-            if (roleRepository.findByName(ERole.ROLE_ADMIN).isEmpty()) {
-                adminRole = roleRepository.save(new Role(null, ERole.ROLE_ADMIN));
-                System.out.println("Added ROLE_ADMIN to database.");
-            } else {
-                adminRole = roleRepository.findByName(ERole.ROLE_ADMIN).get();
-            }
-
-            // 2. Create Test User (only if not already present)
             if (userRepository.findByUsername("test").isEmpty()) {
                 User testUser = new User();
                 testUser.setUsername("test");
-                testUser.setPassword(passwordEncoder.encode("test")); // Hash "test" before storing
-
+                testUser.setPassword(passwordEncoder.encode("test"));
                 Set<Role> roles = new HashSet<>();
-                if (userRole != null) {
-                    roles.add(userRole);
-                }
+                roles.add(userRole);
                 testUser.setRoles(roles);
-
                 userRepository.save(testUser);
                 System.out.println("Test user 'test' inserted with hashed password and ROLE_USER.");
             } else {
                 System.out.println("Test user 'test' already exists.");
             }
 
-            // 3. Create Admin User (only if not already present)
             if (userRepository.findByUsername("admin").isEmpty()) {
                 User adminUser = new User();
                 adminUser.setUsername("admin");
-                adminUser.setPassword(passwordEncoder.encode("admin")); // Hash "admin" before storing
-
+                adminUser.setPassword(passwordEncoder.encode("admin"));
                 Set<Role> roles = new HashSet<>();
-                if (userRole != null) { // Admin should also have USER role for broader access
-                    roles.add(userRole);
-                }
-                if (adminRole != null) {
-                    roles.add(adminRole);
-                }
+                roles.add(adminRole);
+                roles.add(userRole); // Admins usually also have user role for general access
                 adminUser.setRoles(roles);
-
                 userRepository.save(adminUser);
-                System.out.println("Admin user 'admin' inserted with hashed password and ROLE_ADMIN.");
+                System.out.println("Admin user 'admin' inserted with hashed password and ROLE_ADMIN, ROLE_USER.");
             } else {
                 System.out.println("Admin user 'admin' already exists.");
             }
         };
     }
 
-    /**
-     * CommandLineRunner to insert sample question data into the database.
-     * This runs after roles and test users are ensured to be present.
-     *
-     * @param questionRepository The repository for Question entities.
-     * @return A CommandLineRunner instance.
-     */
     @Bean
-    @Order(2) // This CommandLineRunner will run second
-    CommandLineRunner runner(QuestionRepository questionRepository) {
+    @Order(2) // Run after user/role setup
+    CommandLineRunner initialQuestionSetup(QuestionRepository questionRepository) {
         return args -> {
             if (questionRepository.count() == 0) {
-                questionRepository.save(new Question(null, "What is your name?", "text"));
-                questionRepository.save(new Question(null, "What is your gender?", "radio"));
+                questionRepository.save(new Question(null, "What is your favorite color?", "text", Arrays.asList(), null)); // Text question, no options, no max selections
+                questionRepository.save(new Question(null, "What is your gender?", "radio", Arrays.asList("Male", "Female", "Other", "Prefer not to say"), null)); // Radio question with options, no max selections
+                // NEW: Checkbox question with options and maxSelections
+                questionRepository.save(new Question(null, "Which programming languages do you know?", "checkbox", Arrays.asList("Java", "Python", "JavaScript", "C#", "Go", "Rust"), 3)); // Max 3 selections
+                questionRepository.save(new Question(null, "How many years of experience do you have?", "text", Arrays.asList(), null)); // Text question, no options, no max selections
                 System.out.println("Added sample questions to database.");
             } else {
                 System.out.println("Sample questions already exist.");

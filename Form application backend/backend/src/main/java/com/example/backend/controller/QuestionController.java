@@ -3,15 +3,15 @@ package com.example.backend.controller;
 
 import com.example.backend.model.Question;
 import com.example.backend.repository.QuestionRepository;
-import org.springframework.http.ResponseEntity; // Added for ResponseEntity
-import org.springframework.security.access.prepost.PreAuthorize; // Added for @PreAuthorize
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/questions") // <-- CHANGED: Now matches /api/ in axiosInstance
-
+@RequestMapping("/api/questions")
+@CrossOrigin(origins = "http://localhost:5173", maxAge = 3600)
 public class QuestionController {
 
     private final QuestionRepository questionRepository;
@@ -20,15 +20,26 @@ public class QuestionController {
         this.questionRepository = questionRepository;
     }
 
+    /**
+     * Endpoint to get a list of all questions.
+     * Accessible by 'USER' or 'ADMIN' role.
+     * The 'options' field will be included in the returned Question objects.
+     * @return ResponseEntity containing a list of Question objects.
+     */
     @GetMapping
-    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')") // <-- ADDED: Now this endpoint is protected
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<List<Question>> getAllQuestions() {
         List<Question> questions = questionRepository.findAll();
-        // You might want to return 404 if no questions are found, or just an empty list
         return ResponseEntity.ok(questions);
     }
 
-    // Example of adding a new question (only for ADMIN role)
+    /**
+     * Endpoint to create a new question.
+     * Accessible by 'ADMIN' role.
+     * The incoming Question object can now include the 'options' field, which will be saved.
+     * @param question The Question object to create.
+     * @return ResponseEntity containing the created Question object.
+     */
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Question> createQuestion(@RequestBody Question question) {
@@ -36,5 +47,5 @@ public class QuestionController {
         return ResponseEntity.ok(savedQuestion);
     }
 
-    // You can add other CRUD operations here, with appropriate @PreAuthorize rules
+    // Additional CRUD operations (e.g., PUT, DELETE) for questions are handled in AdminController
 }

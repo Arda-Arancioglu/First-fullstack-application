@@ -27,6 +27,8 @@ function AdminPanel({ onLogout }) {
     const [newRoles, setNewRoles] = useState({ ROLE_USER: false, ROLE_ADMIN: false }); // Object for checkbox roles
     const [newQuestionText, setNewQuestionText] = useState('');
     const [newQuestionType, setNewQuestionType] = useState('text'); // Default type
+    const [newQuestionOptions, setNewQuestionOptions] = useState(''); // State for options input (comma-separated string)
+    const [newMaxSelections, setNewMaxSelections] = useState(''); // State for maxSelections input
     const [newAnswerResponse, setNewAnswerResponse] = useState('');
     const [newAnswerQuestionId, setNewAnswerQuestionId] = useState('');
     const [newAnswerUserId, setNewAnswerUserId] = useState('');
@@ -39,7 +41,7 @@ function AdminPanel({ onLogout }) {
                 axiosInstance.get('/admin/questions'),
                 axiosInstance.get('/admin/answers')
             ]);
-            setUsers(usersRes.data);
+            setUsers(usersRes.data); // FIXED: Correctly setting users data from usersRes
             setQuestions(questionsRes.data);
             setAnswers(answersRes.data);
             setError(null);
@@ -64,18 +66,17 @@ function AdminPanel({ onLogout }) {
 
     // --- User CRUD Operations ---
     const handleAddUser = () => {
-        setCurrentUser(null); // Clear for new user
+        setCurrentUser(null);
         setNewUsername('');
         setNewPassword('');
-        setNewRoles({ ROLE_USER: true, ROLE_ADMIN: false }); // Default new user to ROLE_USER
+        setNewRoles({ ROLE_USER: true, ROLE_ADMIN: false });
         setIsUserModalOpen(true);
     };
 
     const handleEditUser = (user) => {
         setCurrentUser(user);
         setNewUsername(user.username);
-        setNewPassword(''); // Password is not pre-filled for security
-        // Set roles based on user's current roles
+        setNewPassword('');
         setNewRoles({
             ROLE_USER: user.roles.some(role => role.name === 'ROLE_USER'),
             ROLE_ADMIN: user.roles.some(role => role.name === 'ROLE_ADMIN')
@@ -84,12 +85,10 @@ function AdminPanel({ onLogout }) {
     };
 
     const handleDeleteUser = async (id) => {
-        // Using a custom modal for confirmation instead of window.confirm
-        // For now, keeping window.confirm as per previous implementation, but it's good to note.
         if (window.confirm("Are you sure you want to delete this user?")) {
             try {
                 await axiosInstance.delete(`/admin/users/${id}`);
-                fetchData(); // Refresh data
+                fetchData();
             } catch (err) {
                 console.error("Error deleting user:", err);
                 setError("Failed to delete user.");
@@ -107,7 +106,6 @@ function AdminPanel({ onLogout }) {
             roles: selectedRoles.map(roleName => ({ name: roleName }))
         };
 
-        // If no roles are selected, default to ROLE_USER to prevent backend errors
         if (userData.roles.length === 0) {
             userData.roles.push({ name: 'ROLE_USER' });
         }
@@ -126,7 +124,6 @@ function AdminPanel({ onLogout }) {
         }
     };
 
-    // Handler for role checkboxes
     const handleRoleChange = (roleName) => {
         setNewRoles(prevRoles => ({
             ...prevRoles,
@@ -139,6 +136,8 @@ function AdminPanel({ onLogout }) {
         setCurrentQuestion(null);
         setNewQuestionText('');
         setNewQuestionType('text');
+        setNewQuestionOptions('');
+        setNewMaxSelections('');
         setIsQuestionModalOpen(true);
     };
 
@@ -146,6 +145,8 @@ function AdminPanel({ onLogout }) {
         setCurrentQuestion(question);
         setNewQuestionText(question.questionText);
         setNewQuestionType(question.type);
+        setNewQuestionOptions(question.options ? question.options.join(', ') : '');
+        setNewMaxSelections(question.maxSelections || '');
         setIsQuestionModalOpen(true);
     };
 
@@ -163,10 +164,27 @@ function AdminPanel({ onLogout }) {
 
     const handleSaveQuestion = async (e) => {
         e.preventDefault();
+
+        const parsedMaxSelections = newMaxSelections !== '' ? parseInt(newMaxSelections, 10) : null;
+        if (newQuestionType === 'checkbox' && parsedMaxSelections !== null && parsedMaxSelections <= 0) {
+            setError("Max selections must be a positive number for checkbox questions.");
+            return;
+        }
+        if (newQuestionType === 'checkbox' && parsedMaxSelections === null) {
+            setError("Max selections is required for checkbox questions.");
+            return;
+        }
+
+
         const questionData = {
             questionText: newQuestionText,
-            type: newQuestionType
+            type: newQuestionType,
+            options: (newQuestionType === 'radio' || newQuestionType === 'checkbox') && newQuestionOptions ?
+                     newQuestionOptions.split(',').map(option => option.trim()).filter(option => option.length > 0) :
+                     [],
+            maxSelections: newQuestionType === 'checkbox' ? parsedMaxSelections : null
         };
+
         try {
             if (currentQuestion) {
                 await axiosInstance.put(`/admin/questions/${currentQuestion.id}`, questionData);
@@ -214,8 +232,8 @@ function AdminPanel({ onLogout }) {
         e.preventDefault();
         const answerData = {
             response: newAnswerResponse,
-            question: { id: newAnswerQuestionId ? Number(newAnswerQuestionId) : null }, // Ensure ID is number
-            user: { id: newAnswerUserId ? Number(newAnswerUserId) : null } // Ensure ID is number
+            question: { id: newAnswerQuestionId ? Number(newAnswerQuestionId) : null },
+            user: { id: newAnswerUserId ? Number(newAnswerUserId) : null }
         };
         try {
             if (currentAnswer) {
@@ -232,7 +250,8 @@ function AdminPanel({ onLogout }) {
     };
 
     if (loading) return <div className="text-center p-4">Loading Admin Panel...</div>;
-    if (error) return <div className="text-center p-4 text-red-500">❌ {error}</div>;
+    // Keep error display for general fetch errors, but handle modal-specific errors within modal forms
+    if (error && !isUserModalOpen && !isQuestionModalOpen && !isAnswerModalOpen) return <div className="text-center p-4 text-red-500">❌ {error}</div>;
 
     return (
         <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4">
@@ -290,6 +309,8 @@ function AdminPanel({ onLogout }) {
                                 <th className="py-2 px-4 text-left text-sm font-medium text-gray-600">ID</th>
                                 <th className="py-2 px-4 text-left text-sm font-medium text-gray-600">Question Text</th>
                                 <th className="py-2 px-4 text-left text-sm font-medium text-gray-600">Type</th>
+                                <th className="py-2 px-4 text-left text-sm font-medium text-gray-600">Options</th>
+                                <th className="py-2 px-4 text-left text-sm font-medium text-gray-600">Max Sel.</th>
                                 <th className="py-2 px-4 text-left text-sm font-medium text-gray-600">Actions</th>
                             </tr>
                         </thead>
@@ -299,6 +320,14 @@ function AdminPanel({ onLogout }) {
                                     <td className="py-2 px-4 text-sm text-gray-700">{question.id}</td>
                                     <td className="py-2 px-4 text-sm text-gray-700">{question.questionText}</td>
                                     <td className="py-2 px-4 text-sm text-gray-700">{question.type}</td>
+                                    <td className="py-2 px-4 text-sm text-gray-700">
+                                        {question.options && question.options.length > 0
+                                            ? question.options.join(', ')
+                                            : 'N/A'}
+                                    </td>
+                                    <td className="py-2 px-4 text-sm text-gray-700">
+                                        {question.maxSelections !== null ? question.maxSelections : 'N/A'}
+                                    </td>
                                     <td className="py-2 px-4 text-sm">
                                         <button onClick={() => handleEditQuestion(question)} className="px-3 py-1 bg-yellow-500 text-white rounded-md mr-2">Edit</button>
                                         <button onClick={() => handleDeleteQuestion(question.id)} className="px-3 py-1 bg-red-500 text-white rounded-md">Delete</button>
@@ -365,7 +394,7 @@ function AdminPanel({ onLogout }) {
                                     value={newPassword}
                                     onChange={(e) => setNewPassword(e.target.value)}
                                     className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                                    required={!currentUser} // Required only for new users
+                                    required={!currentUser}
                                 />
                             </div>
                             <div className="mb-4">
@@ -392,7 +421,7 @@ function AdminPanel({ onLogout }) {
                                 </div>
                             </div>
                             <div className="flex justify-end">
-                                <button type="button" onClick={() => setIsUserModalOpen(false)} className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md mr-2">Cancel</button> {/* Removed modal-cancel-button class */}
+                                <button type="button" onClick={() => setIsUserModalOpen(false)} className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md mr-2">Cancel</button>
                                 <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md">Save</button>
                             </div>
                         </form>
@@ -420,17 +449,52 @@ function AdminPanel({ onLogout }) {
                                 <label className="block text-gray-700 text-sm font-bold mb-2">Type:</label>
                                 <select
                                     value={newQuestionType}
-                                    onChange={(e) => setNewQuestionType(e.target.value)}
+                                    onChange={(e) => {
+                                        setNewQuestionType(e.target.value);
+                                        // Clear options and maxSelections if type changes
+                                        if (e.target.value !== 'radio' && e.target.value !== 'checkbox') {
+                                            setNewQuestionOptions('');
+                                            setNewMaxSelections('');
+                                        } else if (e.target.value === 'radio') {
+                                            setNewMaxSelections(''); // Radio doesn't use maxSelections
+                                        }
+                                    }}
                                     className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                                     required
                                 >
                                     <option value="text">text</option>
                                     <option value="radio">radio</option>
-                                    {/* Add more types if needed */}
+                                    <option value="checkbox">checkbox</option>
                                 </select>
                             </div>
+                            {(newQuestionType === 'radio' || newQuestionType === 'checkbox') && (
+                                <div className="mb-4">
+                                    <label className="block text-gray-700 text-sm font-bold mb-2">Options (comma-separated):</label>
+                                    <input
+                                        type="text"
+                                        value={newQuestionOptions}
+                                        onChange={(e) => setNewQuestionOptions(e.target.value)}
+                                        placeholder="e.g., Option A, Option B, Option C"
+                                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                                    />
+                                </div>
+                            )}
+                            {newQuestionType === 'checkbox' && (
+                                <div className="mb-4">
+                                    <label className="block text-gray-700 text-sm font-bold mb-2">Max Selections (for checkbox):</label>
+                                    <input
+                                        type="number"
+                                        value={newMaxSelections}
+                                        onChange={(e) => setNewMaxSelections(e.target.value)}
+                                        placeholder="e.g., 3"
+                                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                                        min="1"
+                                        required
+                                    />
+                                </div>
+                            )}
                             <div className="flex justify-end">
-                                <button type="button" onClick={() => setIsQuestionModalOpen(false)} className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md mr-2">Cancel</button> {/* Removed modal-cancel-button class */}
+                                <button type="button" onClick={() => setIsQuestionModalOpen(false)} className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md mr-2">Cancel</button>
                                 <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md">Save</button>
                             </div>
                         </form>
@@ -475,7 +539,7 @@ function AdminPanel({ onLogout }) {
                                 />
                             </div>
                             <div className="flex justify-end">
-                                <button type="button" onClick={() => setIsAnswerModalOpen(false)} className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md mr-2">Cancel</button> {/* Removed modal-cancel-button class */}
+                                <button type="button" onClick={() => setIsAnswerModalOpen(false)} className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md mr-2">Cancel</button>
                                 <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md">Save</button>
                             </div>
                         </form>
