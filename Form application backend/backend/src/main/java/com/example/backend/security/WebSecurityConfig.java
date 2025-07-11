@@ -7,14 +7,12 @@ import com.example.backend.security.services.UserDetailsServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.builders.WebSecurity; // NEW IMPORT
-import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer; // NEW IMPORT
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer; // New import for WebSecurityCustomizer
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -22,11 +20,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher; // NEW IMPORT
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher; // New import for AntPathRequestMatcher
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.filter.CorsFilter;
+import org.springframework.web.filter.CorsFilter; // New import for CorsFilter
 
 import java.util.Arrays;
 import java.util.List;
@@ -40,6 +38,8 @@ public class WebSecurityConfig {
 
     @Autowired
     private AuthEntryPointJwt unauthorizedHandler;
+
+    // --- Security Component Beans ---
 
     @Bean
     public AuthTokenFilter authenticationJwtTokenFilter() {
@@ -64,12 +64,48 @@ public class WebSecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+    // --- CORS Configuration Bean ---
+
+    /**
+     * Defines the global CORS configuration for the application.
+     * This bean will be used by the CorsFilter.
+     * @return CorsConfigurationSource
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        // Allow requests from your React frontend
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173"));
+        // Allow common HTTP methods
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        // Allow specific headers, including Authorization for JWT
+        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type"));
+        // Allow credentials (like cookies or Authorization headers) to be sent
+        configuration.setAllowCredentials(true);
+        // Register this CORS configuration for all paths (/**)
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
+    /**
+     * Explicitly registers a CorsFilter bean. Spring Boot automatically
+     * adds this bean very early in the filter chain, which is crucial
+     * for handling CORS preflight (OPTIONS) requests correctly.
+     * @return CorsFilter
+     */
+    @Bean
+    public CorsFilter corsFilter() {
+        return new CorsFilter(corsConfigurationSource());
+    }
+
+    // --- Security Filter Chain Definitions ---
+
     /**
      * Defines a WebSecurityCustomizer to completely ignore requests to /h2-console/**
      * from the Spring Security filter chain. This is the most reliable way to ensure
      * the H2 console is accessible without any security interference.
-     *
-     * @return A WebSecurityCustomizer instance.
+     * @return WebSecurityCustomizer
      */
     @Bean
     public WebSecurityCustomizer webSecurityCustomizer() {
@@ -78,54 +114,42 @@ public class WebSecurityConfig {
 
     /**
      * Defines the main SecurityFilterChain for the rest of the application's endpoints.
-     * This version enables core authentication and authorization.
-     *
+     * This chain handles JWT authentication and authorization for protected resources.
      * @param http HttpSecurity for configuration.
      * @return The configured SecurityFilterChain.
      * @throws Exception if configuration fails.
      */
     @Bean
-    // Removed @Order(1) as webSecurityCustomizer handles H2 console, and this becomes the default chain.
     public SecurityFilterChain apiFilterChain(HttpSecurity http) throws Exception {
         http
+                // Enable CORS for this filter chain using the defined CorsConfigurationSource bean.
+                // This ensures CORS headers are applied correctly for API requests.
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                // Disable CSRF for stateless APIs using JWT.
                 .csrf(AbstractHttpConfigurer::disable)
+                // Configure exception handling for unauthorized access.
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
+                // Configure session management to be stateless, as JWTs handle authentication per request.
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Configure authorization rules for HTTP requests.
                 .authorizeHttpRequests(auth -> auth
+                        // Allow unauthenticated access to authentication endpoints (login/register).
                         .requestMatchers("/api/auth/**").permitAll()
+                        // Allow unauthenticated access to a public test endpoint (if you have one).
                         .requestMatchers("/api/test/all").permitAll()
+                        // All other requests require authentication.
                         .anyRequest().authenticated()
                 );
 
-        // For H2 Console frames to work correctly in a browser (FOR DEVELOPMENT ONLY!)
-        // This is still needed here for other pages that might embed content, but the /h2-console path itself
-        // is now ignored by the filter chain via webSecurityCustomizer().
+        // For frames (e.g., if embedding content), set X-Frame-Options to SAMEORIGIN.
+        // Note: H2 console is ignored by webSecurityCustomizer, so this applies to other potential iframes.
         http.headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin));
 
-
+        // Configure the authentication provider for this security chain.
         http.authenticationProvider(authenticationProvider());
+        // Add our custom JWT authentication filter before Spring Security's default UsernamePasswordAuthenticationFilter.
         http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
-    }
-
-    // This bean defines the CORS configuration
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173")); // Your React app's port
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type"));
-        configuration.setAllowCredentials(true);
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
-    }
-
-    // Explicitly register CorsFilter to ensure it runs early in the filter chain
-    @Bean
-    public CorsFilter corsFilter() {
-        return new CorsFilter(corsConfigurationSource());
     }
 }
