@@ -1,0 +1,335 @@
+/* src/AdminPanel/AdminPanelStyle.css */
+
+/* General body styling (if not already in a global CSS file) */
+body {
+  font-family: "Inter", sans-serif; /* Using Inter font as per instructions */
+  margin: 0;
+  padding: 0;
+  background-color: hsl(234, 7%, 10%); /* Slightly darker charcoal background */
+  color: #e0e0e0; /* Light gray for default text */
+}
+
+/* Main container for the Admin Panel */
+.admin-panel-container {
+  min-height: 100vh;
+  background-color: hsl(
+    234,
+    7%,
+    10%
+  ); /* Same as body for seamless integration */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem;
+}
+
+/* Navigation bar */
+.admin-panel-nav {
+  width: 100%;
+  max-width: 64rem;
+  background-color: #1a222c; /* Darker blue-gray for nav */
+  padding: 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); /* Adjusted shadow for darker theme */
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-panel-nav .admin-panel-title {
+  font-size: 1.875rem;
+  font-weight: 600;
+  color: #ffffff; /* White for main title */
+}
+
+.admin-panel-nav .logout-button {
+  padding: 0.5rem 1rem;
+  background-color: #ef4444; /* red-500 */
+  color: #ffffff;
+  border-radius: 0.375rem;
+  transition: background-color 0.2s ease-in-out;
+  border: none;
+  cursor: pointer;
+}
+
+.admin-panel-nav .logout-button:hover {
+  background-color: #dc2626; /* red-600 */
+}
+
+/* Section containers (Users, Questions, Answers) */
+.admin-section-container {
+  width: 100%;
+  max-width: 64rem;
+  background-color: #1a222c; /* Darker blue-gray for sections */
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); /* Adjusted shadow */
+  margin-bottom: 2rem;
+}
+
+.admin-section-container .section-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ffffff; /* White for section titles */
+  margin-bottom: 1rem;
+}
+
+/* Add button */
+.add-button {
+  padding: 0.5rem 1rem;
+  background-color: #22c55e; /* green-600 */
+  color: #ffffff;
+  border-radius: 0.375rem;
+  transition: background-color 0.2s ease-in-out;
+  border: none;
+  cursor: pointer;
+  margin-bottom: 1rem;
+}
+
+.add-button:hover {
+  background-color: #16a34a; /* green-700 */
+}
+
+/* Table responsive wrapper */
+.table-responsive {
+  overflow-x: auto;
+}
+
+/* Table styling */
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #1a222c; /* Same as section background */
+  border: 1px solid #5a606b; /* Darker medium gray border */
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 0.75rem 1rem;
+  text-align: center;
+  border-bottom: 1px solid #5a606b; /* Darker medium gray border */
+  font-size: 0.875rem;
+  color: #e0e0e0; /* Light gray for table cell text */
+}
+
+.admin-table th {
+  background-color: #25303f; /* Darker shade for header */
+  font-weight: 500;
+  color: #b0b8c4; /* Lighter gray for header text */
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.admin-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+/* Action buttons in table */
+.admin-table .action-button {
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+.admin-table .edit-button {
+  background-color: #f59e0b; /* yellow-500 */
+  color: #ffffff;
+  margin-right: 0.5rem;
+}
+
+.admin-table .edit-button:hover {
+  background-color: #d97706; /* yellow-600 */
+}
+
+.admin-table .delete-button {
+  background-color: #ef4444; /* red-500 */
+  color: #ffffff;
+}
+
+.admin-table .delete-button:hover {
+  background-color: #dc2626; /* red-600 */
+}
+
+/* --- Modal Styling --- */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8); /* Even darker overlay */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: #1a222c; /* Darker blue-gray for modal content */
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4),
+    0 4px 6px -2px rgba(0, 0, 0, 0.2); /* Darker shadow */
+  width: 100%;
+  max-width: 28rem;
+}
+
+.modal-content .modal-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ffffff; /* White for modal title */
+  margin-bottom: 1rem;
+}
+
+.modal-form-group {
+  margin-bottom: 1rem;
+}
+
+.modal-form-group label {
+  display: block;
+  color: #e0e0e0; /* Light gray for label text */
+  font-size: 0.875rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.modal-form-group input[type="text"],
+.modal-form-group input[type="password"],
+.modal-form-group input[type="number"],
+.modal-form-group select {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #5a606b; /* Darker medium gray border */
+  border-radius: 0.25rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  background-color: #25303f57; /* Darker background for inputs */
+  color: #e0e0e0; /* Light gray for input text */
+  line-height: 1.25;
+  outline: none;
+}
+
+.modal-form-group input::placeholder {
+  color: #5a606b; /* Darker placeholder text color */
+  opacity: 0.7;
+}
+
+.modal-form-group input:focus,
+.modal-form-group select:focus {
+  border-color: #3b82f6; /* blue-500 */
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+}
+
+.modal-form-group .checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.modal-form-group .checkbox-group label {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 0;
+  font-weight: 400;
+  color: #e0e0e0; /* Light gray for checkbox labels */
+}
+
+.modal-form-group .checkbox-group input[type="checkbox"] {
+  height: 1.25rem;
+  width: 1.25rem;
+  color: #3b83f668;
+  border-radius: 0.25rem;
+  margin-right: 0.5rem;
+  flex-shrink: 0;
+  background-color: #25303f68; /* Match input background */
+  border: 1px solid #5a606b3f; /* Match input border */
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+.modal-footer button {
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.modal-footer .cancel-button {
+  background-color: hsla(
+    217,
+    19%,
+    27%,
+    0.424
+  ); /* Dark grey for cancel button */
+  color: #e0e0e0; /* Light text */
+  margin-right: 0.5rem;
+}
+
+.modal-footer .cancel-button:hover {
+  background-color: hsl(
+    215,
+    14%,
+    34%
+  ); /* Slightly lighter dark grey on hover */
+}
+
+.modal-footer .save-button {
+  background-color: #2563eb; /* blue-600 */
+  color: #ffffff;
+}
+
+.modal-footer .save-button:hover {
+  background-color: #1d4ed8; /* blue-700 */
+}
+
+/* Loading and Error messages */
+.loading-message,
+.error-message {
+  text-align: center;
+  padding: 1rem;
+  color: #e0e0e0; /* Light text for messages */
+}
+
+.error-message {
+  color: #ef4444; /* red-500 */
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .admin-panel-nav,
+  .admin-section-container {
+    max-width: 100%;
+    padding: 1rem;
+  }
+
+  .admin-panel-nav .admin-panel-title {
+    font-size: 1.5rem;
+  }
+
+  .admin-table th,
+  .admin-table td {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .admin-table .action-button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .modal-content {
+    margin: 1rem;
+  }
+}

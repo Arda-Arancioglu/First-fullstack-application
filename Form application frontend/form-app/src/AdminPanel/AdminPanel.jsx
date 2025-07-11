@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import axiosInstance from '../services/axios-instance';
 import { useNavigate } from 'react-router-dom';
+import './AdminPanelStyle.css'; // Import the new CSS file
 
 function AdminPanel({ onLogout }) {
     const [users, setUsers] = useState([]);
@@ -24,11 +25,11 @@ function AdminPanel({ onLogout }) {
     // Form states for adding/editing
     const [newUsername, setNewUsername] = useState('');
     const [newPassword, setNewPassword] = useState('');
-    const [newRoles, setNewRoles] = useState({ ROLE_USER: false, ROLE_ADMIN: false }); // Object for checkbox roles
+    const [newRoles, setNewRoles] = useState({ ROLE_USER: false, ROLE_ADMIN: false });
     const [newQuestionText, setNewQuestionText] = useState('');
-    const [newQuestionType, setNewQuestionType] = useState('text'); // Default type
-    const [newQuestionOptions, setNewQuestionOptions] = useState(''); // State for options input (comma-separated string)
-    const [newMaxSelections, setNewMaxSelections] = useState(''); // State for maxSelections input
+    const [newQuestionType, setNewQuestionType] = useState('text');
+    const [newQuestionOptions, setNewQuestionOptions] = useState('');
+    const [newMaxSelections, setNewMaxSelections] = useState('');
     const [newAnswerResponse, setNewAnswerResponse] = useState('');
     const [newAnswerQuestionId, setNewAnswerQuestionId] = useState('');
     const [newAnswerUserId, setNewAnswerUserId] = useState('');
@@ -41,7 +42,7 @@ function AdminPanel({ onLogout }) {
                 axiosInstance.get('/admin/questions'),
                 axiosInstance.get('/admin/answers')
             ]);
-            setUsers(usersRes.data); // FIXED: Correctly setting users data from usersRes
+            setUsers(usersRes.data);
             setQuestions(questionsRes.data);
             setAnswers(answersRes.data);
             setError(null);
@@ -249,48 +250,44 @@ function AdminPanel({ onLogout }) {
         }
     };
 
-    if (loading) return <div className="text-center p-4">Loading Admin Panel...</div>;
-    // Keep error display for general fetch errors, but handle modal-specific errors within modal forms
-    if (error && !isUserModalOpen && !isQuestionModalOpen && !isAnswerModalOpen) return <div className="text-center p-4 text-red-500">❌ {error}</div>;
+    if (loading) return <div className="loading-message">Loading Admin Panel...</div>;
+    if (error && !isUserModalOpen && !isQuestionModalOpen && !isAnswerModalOpen) return <div className="error-message">❌ {error}</div>;
 
     return (
-        <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4">
-            <nav className="w-full max-w-4xl bg-white p-4 rounded-lg shadow-md mb-6 flex justify-between items-center">
-                <h2 className="text-2xl font-semibold text-gray-800">Admin Panel</h2>
-                <button
-                    onClick={onLogout}
-                    className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 transition duration-200"
-                >
+        <div className="admin-panel-container">
+            <nav className="admin-panel-nav">
+                <h2 className="admin-panel-title">Admin Panel</h2>
+                <button onClick={onLogout} className="logout-button">
                     Logout
                 </button>
             </nav>
 
-            <div className="w-full max-w-4xl bg-white p-6 rounded-lg shadow-md mb-8">
-                <h3 className="text-xl font-bold mb-4 text-gray-700">Users Management</h3>
-                <button onClick={handleAddUser} className="mb-4 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Add User</button>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full bg-white border border-gray-200 rounded-md">
+            <div className="admin-section-container">
+                <h3 className="section-title">Users Management</h3>
+                <button onClick={handleAddUser} className="add-button">Add User</button>
+                <div className="table-responsive">
+                    <table className="admin-table">
                         <thead>
-                            <tr className="bg-gray-100 border-b border-gray-200">
-                                <th className="py-2 px-4 text-left text-sm font-medium text-gray-600">ID</th>
-                                <th className="py-2 px-4 text-left text-sm font-medium text-gray-600">Username</th>
-                                <th className="py-2 px-4 text-left text-sm font-medium text-gray-600">Roles</th>
-                                <th className="py-2 px-4 text-left text-sm font-medium text-gray-600">Actions</th>
+                            <tr>
+                                <th>ID</th>
+                                <th>Username</th>
+                                <th>Roles</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {users.map((user) => (
-                                <tr key={user.id} className="border-b border-gray-200 last:border-b-0">
-                                    <td className="py-2 px-4 text-sm text-gray-700">{user.id}</td>
-                                    <td className="py-2 px-4 text-sm text-gray-700">{user.username}</td>
-                                    <td className="py-2 px-4 text-sm text-gray-700">
+                                <tr key={user.id}>
+                                    <td>{user.id}</td>
+                                    <td>{user.username}</td>
+                                    <td>
                                         {user.roles && user.roles.length > 0
                                             ? user.roles.map(role => role.name).join(', ')
                                             : 'No Roles'}
                                     </td>
-                                    <td className="py-2 px-4 text-sm">
-                                        <button onClick={() => handleEditUser(user)} className="px-3 py-1 bg-yellow-500 text-white rounded-md mr-2">Edit</button>
-                                        <button onClick={() => handleDeleteUser(user.id)} className="px-3 py-1 bg-red-500 text-white rounded-md">Delete</button>
+                                    <td>
+                                        <button onClick={() => handleEditUser(user)} className="action-button edit-button">Edit</button>
+                                        <button onClick={() => handleDeleteUser(user.id)} className="action-button delete-button">Delete</button>
                                     </td>
                                 </tr>
                             ))}
@@ -299,38 +296,38 @@ function AdminPanel({ onLogout }) {
                 </div>
             </div>
 
-            <div className="w-full max-w-4xl bg-white p-6 rounded-lg shadow-md mb-8">
-                <h3 className="text-xl font-bold mb-4 text-gray-700">Questions Management</h3>
-                <button onClick={handleAddQuestion} className="mb-4 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Add Question</button>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full bg-white border border-gray-200 rounded-md">
+            <div className="admin-section-container">
+                <h3 className="section-title">Questions Management</h3>
+                <button onClick={handleAddQuestion} className="add-button">Add Question</button>
+                <div className="table-responsive">
+                    <table className="admin-table">
                         <thead>
-                            <tr className="bg-gray-100 border-b border-gray-200">
-                                <th className="py-2 px-4 text-left text-sm font-medium text-gray-600">ID</th>
-                                <th className="py-2 px-4 text-left text-sm font-medium text-gray-600">Question Text</th>
-                                <th className="py-2 px-4 text-left text-sm font-medium text-gray-600">Type</th>
-                                <th className="py-2 px-4 text-left text-sm font-medium text-gray-600">Options</th>
-                                <th className="py-2 px-4 text-left text-sm font-medium text-gray-600">Max Sel.</th>
-                                <th className="py-2 px-4 text-left text-sm font-medium text-gray-600">Actions</th>
+                            <tr>
+                                <th>ID</th>
+                                <th>Question Text</th>
+                                <th>Type</th>
+                                <th>Options</th>
+                                <th>Max Sel.</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {questions.map((question) => (
-                                <tr key={question.id} className="border-b border-gray-200 last:border-b-0">
-                                    <td className="py-2 px-4 text-sm text-gray-700">{question.id}</td>
-                                    <td className="py-2 px-4 text-sm text-gray-700">{question.questionText}</td>
-                                    <td className="py-2 px-4 text-sm text-gray-700">{question.type}</td>
-                                    <td className="py-2 px-4 text-sm text-gray-700">
+                                <tr key={question.id}>
+                                    <td>{question.id}</td>
+                                    <td>{question.questionText}</td>
+                                    <td>{question.type}</td>
+                                    <td>
                                         {question.options && question.options.length > 0
                                             ? question.options.join(', ')
                                             : 'N/A'}
                                     </td>
-                                    <td className="py-2 px-4 text-sm text-gray-700">
+                                    <td>
                                         {question.maxSelections !== null ? question.maxSelections : 'N/A'}
                                     </td>
-                                    <td className="py-2 px-4 text-sm">
-                                        <button onClick={() => handleEditQuestion(question)} className="px-3 py-1 bg-yellow-500 text-white rounded-md mr-2">Edit</button>
-                                        <button onClick={() => handleDeleteQuestion(question.id)} className="px-3 py-1 bg-red-500 text-white rounded-md">Delete</button>
+                                    <td>
+                                        <button onClick={() => handleEditQuestion(question)} className="action-button edit-button">Edit</button>
+                                        <button onClick={() => handleDeleteQuestion(question.id)} className="action-button delete-button">Delete</button>
                                     </td>
                                 </tr>
                             ))}
@@ -339,30 +336,30 @@ function AdminPanel({ onLogout }) {
                 </div>
             </div>
 
-            <div className="w-full max-w-4xl bg-white p-6 rounded-lg shadow-md mb-8">
-                <h3 className="text-xl font-bold mb-4 text-gray-700">Answers Management</h3>
-                <button onClick={handleAddAnswer} className="mb-4 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Add Answer</button>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full bg-white border border-gray-200 rounded-md">
+            <div className="admin-section-container">
+                <h3 className="section-title">Answers Management</h3>
+                <button onClick={handleAddAnswer} className="add-button">Add Answer</button>
+                <div className="table-responsive">
+                    <table className="admin-table">
                         <thead>
-                            <tr className="bg-gray-100 border-b border-gray-200">
-                                <th className="py-2 px-4 text-left text-sm font-medium text-gray-600">ID</th>
-                                <th className="py-2 px-4 text-left text-sm font-medium text-gray-600">Response</th>
-                                <th className="py-2 px-4 text-left text-sm font-medium text-gray-600">Question ID</th>
-                                <th className="py-2 px-4 text-left text-sm font-medium text-gray-600">User ID</th>
-                                <th className="py-2 px-4 text-left text-sm font-medium text-gray-600">Actions</th>
+                            <tr>
+                                <th>ID</th>
+                                <th>Response</th>
+                                <th>Question ID</th>
+                                <th>User ID</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {answers.map((answer) => (
-                                <tr key={answer.id} className="border-b border-gray-200 last:border-b-0">
-                                    <td className="py-2 px-4 text-sm text-gray-700">{answer.id}</td>
-                                    <td className="py-2 px-4 text-sm text-gray-700">{answer.response}</td>
-                                    <td className="py-2 px-4 text-sm text-gray-700">{answer.question?.id || 'N/A'}</td>
-                                    <td className="py-2 px-4 text-sm text-gray-700">{answer.user?.id || 'N/A'}</td>
-                                    <td className="py-2 px-4 text-sm">
-                                        <button onClick={() => handleEditAnswer(answer)} className="px-3 py-1 bg-yellow-500 text-white rounded-md mr-2">Edit</button>
-                                        <button onClick={() => handleDeleteAnswer(answer.id)} className="px-3 py-1 bg-red-500 text-white rounded-md">Delete</button>
+                                <tr key={answer.id}>
+                                    <td>{answer.id}</td>
+                                    <td>{answer.response}</td>
+                                    <td>{answer.question?.id || 'N/A'}</td>
+                                    <td>{answer.user?.id || 'N/A'}</td>
+                                    <td>
+                                        <button onClick={() => handleEditAnswer(answer)} className="action-button edit-button">Edit</button>
+                                        <button onClick={() => handleDeleteAnswer(answer.id)} className="action-button delete-button">Delete</button>
                                     </td>
                                 </tr>
                             ))}
@@ -373,56 +370,52 @@ function AdminPanel({ onLogout }) {
 
             {/* User Modal */}
             {isUserModalOpen && (
-                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-xl w-96">
-                        <h3 className="text-xl font-bold mb-4">{currentUser ? 'Edit User' : 'Add User'}</h3>
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <h3 className="modal-title">{currentUser ? 'Edit User' : 'Add User'}</h3>
                         <form onSubmit={handleSaveUser}>
-                            <div className="mb-4">
-                                <label className="block text-gray-700 text-sm font-bold mb-2">Username:</label>
+                            <div className="modal-form-group">
+                                <label>Username:</label>
                                 <input
                                     type="text"
                                     value={newUsername}
                                     onChange={(e) => setNewUsername(e.target.value)}
-                                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                                     required
                                 />
                             </div>
-                            <div className="mb-4">
-                                <label className="block text-gray-700 text-sm font-bold mb-2">Password: {currentUser ? '(Leave blank to keep current)' : ''}</label>
+                            <div className="modal-form-group">
+                                <label>Password: {currentUser ? '(Leave blank to keep current)' : ''}</label>
                                 <input
                                     type="password"
                                     value={newPassword}
                                     onChange={(e) => setNewPassword(e.target.value)}
-                                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                                     required={!currentUser}
                                 />
                             </div>
-                            <div className="mb-4">
-                                <label className="block text-gray-700 text-sm font-bold mb-2">Roles:</label>
-                                <div className="flex items-center space-x-4">
-                                    <label className="inline-flex items-center">
+                            <div className="modal-form-group">
+                                <label>Roles:</label>
+                                <div className="checkbox-group">
+                                    <label>
                                         <input
                                             type="checkbox"
-                                            className="form-checkbox h-5 w-5 text-blue-600"
                                             checked={newRoles.ROLE_USER}
                                             onChange={() => handleRoleChange('ROLE_USER')}
                                         />
-                                        <span className="ml-2 text-gray-700">User</span>
+                                        <span>User</span>
                                     </label>
-                                    <label className="inline-flex items-center">
+                                    <label>
                                         <input
                                             type="checkbox"
-                                            className="form-checkbox h-5 w-5 text-blue-600"
                                             checked={newRoles.ROLE_ADMIN}
                                             onChange={() => handleRoleChange('ROLE_ADMIN')}
                                         />
-                                        <span className="ml-2 text-gray-700">Admin</span>
+                                        <span>Admin</span>
                                     </label>
                                 </div>
                             </div>
-                            <div className="flex justify-end">
-                                <button type="button" onClick={() => setIsUserModalOpen(false)} className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md mr-2">Cancel</button>
-                                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md">Save</button>
+                            <div className="modal-footer">
+                                <button type="button" onClick={() => setIsUserModalOpen(false)} className="cancel-button">Cancel</button>
+                                <button type="submit" className="save-button">Save</button>
                             </div>
                         </form>
                     </div>
@@ -431,35 +424,32 @@ function AdminPanel({ onLogout }) {
 
             {/* Question Modal */}
             {isQuestionModalOpen && (
-                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-xl w-96">
-                        <h3 className="text-xl font-bold mb-4">{currentQuestion ? 'Edit Question' : 'Add Question'}</h3>
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <h3 className="modal-title">{currentQuestion ? 'Edit Question' : 'Add Question'}</h3>
                         <form onSubmit={handleSaveQuestion}>
-                            <div className="mb-4">
-                                <label className="block text-gray-700 text-sm font-bold mb-2">Question Text:</label>
+                            <div className="modal-form-group">
+                                <label>Question Text:</label>
                                 <input
                                     type="text"
                                     value={newQuestionText}
                                     onChange={(e) => setNewQuestionText(e.target.value)}
-                                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                                     required
                                 />
                             </div>
-                            <div className="mb-4">
-                                <label className="block text-gray-700 text-sm font-bold mb-2">Type:</label>
+                            <div className="modal-form-group">
+                                <label>Type:</label>
                                 <select
                                     value={newQuestionType}
                                     onChange={(e) => {
                                         setNewQuestionType(e.target.value);
-                                        // Clear options and maxSelections if type changes
                                         if (e.target.value !== 'radio' && e.target.value !== 'checkbox') {
                                             setNewQuestionOptions('');
                                             setNewMaxSelections('');
                                         } else if (e.target.value === 'radio') {
-                                            setNewMaxSelections(''); // Radio doesn't use maxSelections
+                                            setNewMaxSelections('');
                                         }
                                     }}
-                                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                                     required
                                 >
                                     <option value="text">text</option>
@@ -468,34 +458,32 @@ function AdminPanel({ onLogout }) {
                                 </select>
                             </div>
                             {(newQuestionType === 'radio' || newQuestionType === 'checkbox') && (
-                                <div className="mb-4">
-                                    <label className="block text-gray-700 text-sm font-bold mb-2">Options (comma-separated):</label>
+                                <div className="modal-form-group">
+                                    <label>Options (comma-separated):</label>
                                     <input
                                         type="text"
                                         value={newQuestionOptions}
                                         onChange={(e) => setNewQuestionOptions(e.target.value)}
                                         placeholder="e.g., Option A, Option B, Option C"
-                                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                                     />
                                 </div>
                             )}
                             {newQuestionType === 'checkbox' && (
-                                <div className="mb-4">
-                                    <label className="block text-gray-700 text-sm font-bold mb-2">Max Selections (for checkbox):</label>
+                                <div className="modal-form-group">
+                                    <label>Max Selections (for checkbox):</label>
                                     <input
                                         type="number"
                                         value={newMaxSelections}
                                         onChange={(e) => setNewMaxSelections(e.target.value)}
                                         placeholder="e.g., 3"
-                                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                                         min="1"
                                         required
                                     />
                                 </div>
                             )}
-                            <div className="flex justify-end">
-                                <button type="button" onClick={() => setIsQuestionModalOpen(false)} className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md mr-2">Cancel</button>
-                                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md">Save</button>
+                            <div className="modal-footer">
+                                <button type="button" onClick={() => setIsQuestionModalOpen(false)} className="cancel-button">Cancel</button>
+                                <button type="submit" className="save-button">Save</button>
                             </div>
                         </form>
                     </div>
@@ -504,43 +492,40 @@ function AdminPanel({ onLogout }) {
 
             {/* Answer Modal */}
             {isAnswerModalOpen && (
-                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-xl w-96">
-                        <h3 className="text-xl font-bold mb-4">{currentAnswer ? 'Edit Answer' : 'Add Answer'}</h3>
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <h3 className="modal-title">{currentAnswer ? 'Edit Answer' : 'Add Answer'}</h3>
                         <form onSubmit={handleSaveAnswer}>
-                            <div className="mb-4">
-                                <label className="block text-gray-700 text-sm font-bold mb-2">Response:</label>
+                            <div className="modal-form-group">
+                                <label>Response:</label>
                                 <input
                                     type="text"
                                     value={newAnswerResponse}
                                     onChange={(e) => setNewAnswerResponse(e.target.value)}
-                                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                                     required
                                 />
                             </div>
-                            <div className="mb-4">
-                                <label className="block text-gray-700 text-sm font-bold mb-2">Question ID:</label>
+                            <div className="modal-form-group">
+                                <label>Question ID:</label>
                                 <input
                                     type="number"
                                     value={newAnswerQuestionId}
                                     onChange={(e) => setNewAnswerQuestionId(e.target.value)}
-                                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                                     required
                                 />
                             </div>
-                            <div className="mb-4">
-                                <label className="block text-gray-700 text-sm font-bold mb-2">User ID:</label>
+                            <div className="modal-form-group">
+                                <label>User ID:</label>
                                 <input
                                     type="number"
                                     value={newAnswerUserId}
                                     onChange={(e) => setNewAnswerUserId(e.target.value)}
-                                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                                     required
                                 />
                             </div>
-                            <div className="flex justify-end">
-                                <button type="button" onClick={() => setIsAnswerModalOpen(false)} className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md mr-2">Cancel</button>
-                                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md">Save</button>
+                            <div className="modal-footer">
+                                <button type="button" onClick={() => setIsAnswerModalOpen(false)} className="cancel-button">Cancel</button>
+                                <button type="submit" className="save-button">Save</button>
                             </div>
                         </form>
                     </div>
