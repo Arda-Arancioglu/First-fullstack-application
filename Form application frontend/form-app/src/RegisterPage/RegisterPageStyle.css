@@ -1,4 +1,4 @@
-/* src/LandingPage/LandingPageStyle.css */
+/* src/RegisterPage/RegisterPageStyle.css */
 
 /* General body styling (if not already in a global CSS file) */
 body {
@@ -10,8 +10,8 @@ body {
   color: #e0e0e0; /* Light gray for default text */
 }
 
-/* Main container for the Landing Page */
-.landing-page-container {
+/* Main container for the Register Page */
+.register-page-container {
   min-height: 100vh;
   background-color: hsl(
     234,
@@ -25,8 +25,8 @@ body {
   padding: 1rem;
 }
 
-/* Login/Registration card */
-.login-card {
+/* Register card */
+.register-card {
   width: 100%;
   max-width: 24rem; /* Equivalent to max-w-md */
   background-color: #1a222c; /* Darker blue-gray for card */
@@ -35,7 +35,7 @@ body {
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); /* Adjusted shadow for darker theme */
 }
 
-.login-title {
+.register-title {
   font-size: 1.875rem; /* Equivalent to text-3xl */
   font-weight: 700; /* Equivalent to font-bold */
   text-align: center;
@@ -43,7 +43,7 @@ body {
   margin-bottom: 1.5rem; /* Equivalent to mb-6 */
 }
 
-.login-form {
+.register-form {
   display: flex;
   flex-direction: column;
   gap: 1rem; /* Equivalent to space-y-4 */
@@ -123,7 +123,7 @@ body {
   margin-bottom: 0.5rem;
 }
 
-.login-button {
+.register-button {
   width: 100%;
   padding: 0.5rem 1rem; /* Equivalent to px-4 py-2 */
   background-color: #2563eb; /* blue-600 */
@@ -134,14 +134,21 @@ body {
   cursor: pointer;
 }
 
-.login-button:hover {
+.register-button:hover {
   background-color: #1d4ed8; /* Darker blue on hover */
 }
 
-.login-button:focus {
+.register-button:focus {
   outline: none;
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.5),
     0 0 0 2px rgba(59, 130, 246, 0.5);
+}
+
+.register-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #6b7280; /* Medium gray when disabled */
+  color: #cccccc;
 }
 
 /* Message display */
@@ -159,29 +166,34 @@ body {
   color: #ef4444; /* red-600 */
 }
 
-/* Link to register */
-.register-link-text {
+.countdown-text {
+  margin-top: 0.5rem;
+  font-weight: bold;
+}
+
+/* Link to login */
+.login-link-text {
   margin-top: 1.5rem; /* Equivalent to mt-6 */
   text-align: center;
   color: #9ca3af; /* gray-600 */
 }
 
-.register-link {
+.login-link {
   color: #3b82f6; /* blue-600 */
   text-decoration: none; /* Remove underline */
   transition: text-decoration 0.2s ease-in-out;
 }
 
-.register-link:hover {
+.login-link:hover {
   text-decoration: underline;
 }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-  .login-card {
+  .register-card {
     padding: 1.5rem; /* Adjust padding for smaller screens */
   }
-  .login-title {
+  .register-title {
     font-size: 1.5rem;
   }
 }

@@ -56,7 +56,7 @@ public class BackendApplication {
             if (userRepository.findByUsername("admin").isEmpty()) {
                 User adminUser = new User();
                 adminUser.setUsername("admin");
-                adminUser.setPassword(passwordEncoder.encode("admin"));
+                adminUser.setPassword(passwordEncoder.encode("admin1234"));
                 Set<Role> roles = new HashSet<>();
                 roles.add(adminRole);
                 roles.add(userRole); // Admins usually also have user role for general access

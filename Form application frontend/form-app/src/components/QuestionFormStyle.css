@@ -7,9 +7,161 @@
   box-sizing: border-box;
 }
 
+/* Basic body/html reset to prevent unwanted margins/scrollbars */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden; /* Prevent horizontal scrollbar from sidebar animation */
+  background-color: hsl(234, 7%, 25%); /* Dark charcoal background */
+  color: #e0e0e0; /* Light gray for default text */
+  font-family: "Inter", sans-serif;
+}
+
+/* --- General Layout and Containers --- */
+.main-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem;
+  position: relative;
+  flex-grow: 1;
+  width: 100%;
+}
+
+.form-title-in-box {
+  font-size: 2.5em;
+  line-height: 1.1;
+  color: #ffffff; /* White for main title */
+  text-align: center;
+  margin: 10px 0px 20px 0px;
+  min-width: 300px;
+}
+
+.div-wrapping-container {
+  width: 100%;
+  max-width: 28rem;
+  background-color: #1a222c; /* Darker blue-gray for sections */
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); /* Adjusted shadow for darker theme */
+  min-width: 100px;
+  min-height: 100px;
+  margin: 70px auto 0px auto;
+  padding: 15px;
+  text-align: center;
+}
+
+/* --- Form Elements --- */
+.form-class {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  justify-content: center;
+}
+
 .mb-4 {
-  /* Applied to div containing label and input */
   margin-bottom: 1rem;
+}
+
+/* Wrapper for input and validation icon */
+.input-with-validation {
+  position: relative;
+  display: flex; /* Allows label and icon to be on the same line */
+  align-items: center; /* Vertically align items */
+}
+
+.form-input {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  border: 1px solid #5a606b; /* Darker medium gray border */
+  border-radius: 0.25rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background-color: #25303f; /* Darker background for inputs */
+  color: #e0e0e0; /* Light gray for input text */
+  line-height: 1.25;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s; /* Smooth transition for validation */
+}
+
+.form-input:focus {
+  border-color: #3b82f6; /* blue-500 */
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+}
+
+/* NEW: Validation error styling for inputs and groups */
+.form-input.input-error,
+.radio-group.input-error,
+.checkbox-group.input-error {
+  border-color: #ef4444; /* Red border for error */
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.5); /* Red box shadow */
+}
+
+/* NEW: Validation error icon */
+.validation-error-icon {
+  position: absolute;
+  right: 0.5rem; /* Adjust position relative to input */
+  color: #ef4444; /* Red color for exclamation mark */
+  font-size: 1.2em;
+  cursor: help; /* Cursor indicates hover for more info */
+  top: 50%; /* Center vertically */
+  transform: translateY(-50%); /* Adjust for vertical centering */
+  display: flex; /* To vertically center the icon itself */
+  align-items: center;
+  justify-content: center;
+  width: 1.5em; /* Make it a clickable/hoverable area */
+  height: 1.5em;
+  border-radius: 50%; /* Make it circular */
+  background-color: rgba(
+    255,
+    255,
+    255,
+    0.1
+  ); /* Slight background for visibility */
+}
+
+/* Tooltip for the exclamation mark (using title attribute) */
+.validation-error-icon:hover::after {
+  content: attr(title); /* Display the title attribute as tooltip */
+  position: absolute;
+  bottom: 100%; /* Position above the icon */
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #333;
+  color: #fff;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  white-space: nowrap;
+  font-size: 0.8em;
+  z-index: 10;
+  margin-bottom: 0.5rem; /* Space between icon and tooltip */
+}
+
+.form-button {
+  margin-top: 15px;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #2563eb; /* blue-600 */
+  color: white;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.25s, background-color 0.25s;
+  width: 100%;
+}
+
+.form-button:hover {
+  border-color: #646cff; /* Light blue on hover */
+  background-color: #1d4ed8; /* Darker blue on hover */
+}
+
+.form-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #6b7280; /* Medium gray when disabled */
+  color: #cccccc;
 }
 
 /* --- Circular Profile Button --- */
@@ -17,31 +169,31 @@
   position: fixed;
   top: 1rem;
   right: 1rem;
-  z-index: 50; /* Ensure it's above other content */
+  z-index: 50;
   padding: 0.75rem;
-  background-color: hsl(234, 7%, 29%); /* Blue background */
-  color: #ffffff; /* White icon */
-  border-radius: 50%; /* Makes it circular */
+  background-color: #3b82f6; /* blue-500 */
+  color: #ffffff;
+  border-radius: 50%;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
-    0 4px 6px -2px rgba(0, 0, 0, 0.05); /* Soft shadow */
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
   border: none;
   cursor: pointer;
   transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-  display: flex; /* For SVG centering */
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 3rem; /* Explicit width for circular button */
-  height: 3rem; /* Explicit height for circular button */
+  width: 3rem;
+  height: 3rem;
 }
 
 .profile-button:hover {
-  background-color: #2563eb; /* Darker blue on hover */
+  background-color: #2563eb; /* blue-600 */
 }
 
 .profile-button:focus {
   outline: none;
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.5),
-    0 0 0 2px rgba(59, 130, 246, 0.5); /* Blue focus ring */
+    0 0 0 2px rgba(59, 130, 246, 0.5);
 }
 
 .icon-svg {
@@ -55,19 +207,19 @@
   top: 0;
   right: 0;
   height: 100vh;
-  width: 20rem; /* Sidebar width */
-  background-color: #ffffff;
-  box-shadow: -4px 0 10px rgba(0, 0, 0, 0.1); /* Shadow on the left edge */
-  transform: translateX(100%); /* Initially hidden off-screen to the right */
-  transition: transform 0.3s ease-in-out; /* Smooth sliding animation */
-  z-index: 50; /* Ensure it's above other content */
+  width: 20rem;
+  background-color: #1f2937; /* Darker blue-gray for sidebar */
+  box-shadow: -4px 0 10px rgba(0, 0, 0, 0.4); /* Darker shadow */
+  transform: translateX(100%);
+  transition: transform 0.3s ease-in-out;
+  z-index: 50;
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
 }
 
 .profile-sidebar.sidebar-open {
-  transform: translateX(0); /* Slides into view */
+  transform: translateX(0);
 }
 
 .sidebar-header {
@@ -80,36 +232,36 @@
 .sidebar-title {
   font-size: 1.5rem;
   font-weight: bold;
-  color: #1f2937;
+  color: #ffffff; /* White for title */
 }
 
 .sidebar-close-button {
-  color: #6b7280; /* Grey close button */
+  color: #6b7280; /* Medium gray for close button */
   font-size: 2rem;
   background: none;
   border: none;
   cursor: pointer;
-  line-height: 1; /* Helps vertically center the 'x' */
+  line-height: 1;
 }
 
 .sidebar-close-button:hover {
-  color: #374151; /* Darker grey on hover */
+  color: #9ca3af; /* Lighter gray on hover */
 }
 
 .sidebar-subtitle {
   font-size: 1.125rem;
   font-weight: 600;
-  color: #374151;
+  color: #e0e0e0; /* Light gray for subtitle */
   margin-bottom: 1rem;
 }
 
 .sidebar-loading-text,
 .sidebar-no-answers-text {
-  color: #6b7280;
+  color: #6b7280; /* Medium gray */
 }
 
 .sidebar-error-text {
-  color: #ef4444; /* Red for errors */
+  color: #ef4444; /* red-500 */
 }
 
 .sidebar-answers-list {
@@ -118,31 +270,31 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem; /* Space between list items */
-  flex-grow: 1; /* Allows list to take available vertical space */
-  overflow-y: auto; /* Enables scrolling if content overflows */
-  padding-right: 0.5rem; /* Padding for scrollbar */
+  gap: 0.75rem;
+  flex-grow: 1;
+  overflow-y: auto;
+  padding-right: 0.5rem;
 }
 
 .sidebar-answer-item {
   padding: 0.75rem;
-  background-color: #f9fafb; /* Very light grey */
+  background-color: #25303f; /* Darker background for items */
   border-radius: 0.375rem;
-  border: 1px solid #e5e7eb; /* Light grey border */
-  color: #374151;
+  border: 1px solid #5a606b; /* Darker border */
+  color: #e0e0e0; /* Light text for items */
   font-size: 0.875rem;
 }
 
 .sidebar-footer {
-  margin-top: auto; /* Pushes footer to the bottom */
+  margin-top: auto;
   padding-top: 1rem;
-  border-top: 1px solid #e5e7eb; /* Separator line */
+  border-top: 1px solid #5a606b; /* Darker border */
 }
 
 .sidebar-logout-button {
   width: 100%;
   padding: 0.5rem 1rem;
-  background-color: #ef4444; /* Red button */
+  background-color: #ef4444; /* red-500 */
   color: #ffffff;
   border-radius: 0.375rem;
   transition: background-color 0.2s ease-in-out;
@@ -151,12 +303,12 @@
 }
 
 .sidebar-logout-button:hover {
-  background-color: #dc2626; /* Darker red on hover */
+  background-color: #dc2626; /* red-600 */
 }
 
 .sidebar-logout-button:focus {
   outline: none;
-  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.5), 0 0 0 2px rgba(239, 68, 68, 0.5); /* Red focus ring */
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.5), 0 0 0 2px rgba(239, 68, 68, 0.5);
 }
 
 /* --- Overlay --- */
@@ -165,7 +317,212 @@
   top: 0;
   right: 0;
   bottom: 0;
-  left: 0; /* Covers the entire viewport */
-  background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent black */
-  z-index: 40; /* Below sidebar, above main content */
+  left: 0;
+  background-color: rgba(0, 0, 0, 0.7); /* Darker overlay */
+  z-index: 40;
+}
+
+/* Style for the update note */
+.update-note {
+  font-size: 0.8rem;
+  color: #9ca3af; /* Lighter gray for notes */
+  margin-top: 0.25rem;
+  font-style: italic;
+  text-align: left; /* Align notes to the left */
+}
+
+/* Styles for radio button group */
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem; /* Space between radio options */
+  margin-top: 0.5rem;
+  text-align: left; /* Align options to the left */
+  padding: 0.5rem; /* Add padding to the group */
+  border: 1px solid transparent; /* Default transparent border */
+  border-radius: 0.25rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: #e0e0e0; /* Light text color for options */
+  font-size: 0.9rem;
+}
+
+.form-radio-input {
+  margin-right: 0.5rem;
+  /* Customizing radio button appearance */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 1.1em;
+  height: 1.1em;
+  border: 2px solid #5a606b; /* Darker border */
+  border-radius: 50%;
+  background-color: #25303f; /* Darker background */
+  transition: background-color 0.2s, border-color 0.2s;
+  cursor: pointer;
+}
+
+.form-radio-input:checked {
+  background-color: #3b82f6; /* blue-500 when checked */
+  border-color: #3b82f6;
+}
+
+.form-radio-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+}
+
+/* Styles for checkbox button group */
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem; /* Space between checkbox options */
+  margin-top: 0.5rem;
+  text-align: left; /* Align options to the left */
+  padding: 0.5rem; /* Add padding to the group */
+  border: 1px solid transparent; /* Default transparent border */
+  border-radius: 0.25rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.checkbox-option {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: #e0e0e0; /* Light text color for options */
+  font-size: 0.9rem;
+}
+
+.form-checkbox-input {
+  margin-right: 0.5rem;
+  /* Customizing checkbox appearance */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 1.1em;
+  height: 1.1em;
+  border: 2px solid #5a606b; /* Darker border */
+  border-radius: 0.25em; /* Slightly rounded square */
+  background-color: #25303f; /* Darker background */
+  transition: background-color 0.2s, border-color 0.2s;
+  cursor: pointer;
+  position: relative; /* For custom checkmark */
+}
+
+.form-checkbox-input:checked {
+  background-color: #3b82f6; /* blue-500 when checked */
+  border-color: #3b82f6;
+}
+
+.form-checkbox-input:checked::before {
+  content: "\2713"; /* Checkmark symbol */
+  display: block;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.8em;
+  color: #ffffff; /* White checkmark */
+}
+
+.form-checkbox-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+}
+
+.max-selections-note {
+  font-size: 0.75rem;
+  color: #9ca3af; /* Lighter gray for notes */
+  margin-top: 0.25rem;
+  text-align: left;
+}
+
+/* NEW: Styles for custom message box (instead of alert) */
+.custom-message-box {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #1a222c; /* Darker background */
+  color: #e0e0e0; /* Light text */
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+  z-index: 1001; /* Above modal overlay */
+  text-align: center;
+  min-width: 250px;
+}
+
+.custom-message-box p {
+  margin-bottom: 15px;
+  font-size: 1.1em;
+}
+
+.custom-message-box-button {
+  padding: 8px 15px;
+  background-color: #2563eb; /* blue-600 */
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.custom-message-box-button:hover {
+  background-color: #1d4ed8; /* blue-700 */
+}
+
+/* Status messages at the bottom of the form */
+.form-status-message {
+  margin-top: 20px;
+  padding: 10px;
+  border-radius: 5px;
+  font-weight: bold;
+}
+
+.success-message {
+  background-color: rgba(34, 197, 94, 0.2); /* Light green background */
+  color: #22c55e; /* Green text */
+  border: 1px solid #22c55e;
+}
+
+.error-message {
+  background-color: rgba(239, 68, 68, 0.2); /* Light red background */
+  color: #ef4444; /* Red text */
+  border: 1px solid #ef4444;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .div-wrapping-container {
+    margin: 40px auto 0px auto; /* Adjust top margin for smaller screens */
+  }
+  .profile-button {
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0.5rem;
+  }
+  .icon-svg {
+    height: 1.25rem;
+    width: 1.25rem;
+  }
+  .profile-sidebar {
+    width: 16rem; /* Smaller sidebar on mobile */
+  }
+  .sidebar-title {
+    font-size: 1.25rem;
+  }
+  .sidebar-close-button {
+    font-size: 1.5rem;
+  }
+  .form-title-in-box {
+    font-size: 2em;
+  }
 }

@@ -6,12 +6,12 @@ import { useNavigate } from 'react-router-dom';
 
 const QuestionForm = ({ onLogout }) => {
     const [questions, setQuestions] = useState([]);
-    // answers will now store strings for text/radio, and arrays for checkboxes
-    const [answers, setAnswers] = useState({});
-    const [userExistingAnswers, setUserExistingAnswers] = useState({});
+    const [answers, setAnswers] = useState({}); // Stores current form input values
+    const [userExistingAnswers, setUserExistingAnswers] = useState({}); // Stores answers fetched from backend
     const [status, setStatus] = useState(null); // null | "saving" | "success" | "error"
     const [fetchError, setFetchError] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [validationErrors, setValidationErrors] = useState({}); // NEW: State for validation errors
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [myAnswers, setMyAnswers] = useState([]);
@@ -25,6 +25,7 @@ const QuestionForm = ({ onLogout }) => {
             setFetchError(null);
             setStatus(null); // Clear status on new data fetch
             setLoading(true);
+            setValidationErrors({}); // Clear validation errors on new fetch
 
             // Fetch questions
             const questionsRes = await axiosInstance.get("/questions");
@@ -106,6 +107,13 @@ const QuestionForm = ({ onLogout }) => {
     }, [isSidebarOpen, onLogout]);
 
     const handleChange = (questionId, value, type) => {
+        // Clear validation error for this question when user types/selects
+        setValidationErrors(prev => {
+            const newErrors = { ...prev };
+            delete newErrors[questionId];
+            return newErrors;
+        });
+
         if (type === 'checkbox') {
             setAnswers(prev => {
                 const currentSelections = prev[questionId] || [];
@@ -117,7 +125,17 @@ const QuestionForm = ({ onLogout }) => {
                     const question = questions.find(q => q.id === questionId);
                     if (question && question.maxSelections && currentSelections.length >= question.maxSelections) {
                         // Prevent selection if maxSelections reached
-                        alert(`You can select a maximum of ${question.maxSelections} options.`);
+                        // Using a custom message box instead of alert()
+                        const messageBox = document.createElement('div');
+                        messageBox.className = 'custom-message-box';
+                        messageBox.innerHTML = `
+                            <p>You can select a maximum of ${question.maxSelections} options.</p>
+                            <button class="custom-message-box-button">OK</button>
+                        `;
+                        document.body.appendChild(messageBox);
+                        messageBox.querySelector('.custom-message-box-button').onclick = () => {
+                            document.body.removeChild(messageBox);
+                        };
                         return prev;
                     }
                     // Add to selections
@@ -133,6 +151,35 @@ const QuestionForm = ({ onLogout }) => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setStatus("saving");
+        const newValidationErrors = {};
+        let hasErrors = false;
+
+        // Validate each question
+        questions.forEach(q => {
+            let isEmpty = false;
+            if (q.type === 'text' || q.type === 'radio') {
+                if (!answers[q.id] || answers[q.id].trim() === '') {
+                    isEmpty = true;
+                }
+            } else if (q.type === 'checkbox') {
+                if (!answers[q.id] || answers[q.id].length === 0) {
+                    isEmpty = true;
+                }
+            }
+
+            if (isEmpty) {
+                newValidationErrors[q.id] = true; // Mark as error
+                hasErrors = true;
+            }
+        });
+
+        setValidationErrors(newValidationErrors);
+
+        if (hasErrors) {
+            setStatus("error"); // Set status to error due to validation
+            setFetchError("Please fill out all required questions.");
+            return; // Stop submission
+        }
 
         const user = JSON.parse(localStorage.getItem("user"));
         const userId = user ? user.id : null;
@@ -165,6 +212,7 @@ const QuestionForm = ({ onLogout }) => {
         try {
             const res = await axiosInstance.post("/answers", payload);
             setStatus("success");
+            setFetchError(null); // Clear any previous fetch errors
             fetchAllData(); // Re-fetch all data to update existing answers and notes
         } catch (err) {
             console.error("Save failed:", err);
@@ -185,7 +233,9 @@ const QuestionForm = ({ onLogout }) => {
     };
 
     if (loading) return <div className="text-center p-4">Loading form...</div>;
-    if (fetchError) return <div className="text-center p-4 text-red-500">❌ {fetchError}</div>;
+    // Display fetchError only if it's not a validation error
+    if (fetchError && status !== "error") return <div className="text-center p-4 text-red-500">❌ {fetchError}</div>;
+
 
     return (
         <div className="main-container">
@@ -207,54 +257,60 @@ const QuestionForm = ({ onLogout }) => {
                 ) : (
                     <form className="form-class" onSubmit={handleSubmit}>
                         {questions.map((q) => (
-                            <div key={q.id} className="mb-4">
+                            <div key={q.id} className="mb-4 question-item"> {/* Added question-item class */}
                                 <label>{q.questionText}</label>
-                                <br />
-                                {q.type === "radio" && q.options && q.options.length > 0 ? (
-                                    <div className="radio-group">
-                                        {q.options.map((option, index) => (
-                                            <label key={index} className="radio-option">
-                                                <input
-                                                    type="radio"
-                                                    name={`question-${q.id}`} // Group radio buttons by question ID
-                                                    value={option}
-                                                    checked={answers[q.id] === option}
-                                                    onChange={(e) => handleChange(q.id, e.target.value, q.type)}
-                                                    className="form-radio-input"
-                                                />
-                                                {option}
-                                            </label>
-                                        ))}
-                                    </div>
-                                ) : q.type === "checkbox" && q.options && q.options.length > 0 ? ( // NEW: Checkbox rendering
-                                    <div className="checkbox-group">
-                                        {q.options.map((option, index) => (
-                                            <label key={index} className="checkbox-option">
-                                                <input
-                                                    type="checkbox"
-                                                    name={`question-${q.id}`} // Name for grouping, but checkboxes are independent
-                                                    value={option}
-                                                    checked={answers[q.id] && answers[q.id].includes(option)}
-                                                    onChange={(e) => handleChange(q.id, e.target.value, q.type)}
-                                                    className="form-checkbox-input"
-                                                />
-                                                {option}
-                                            </label>
-                                        ))}
-                                        {q.maxSelections && (
-                                            <p className="max-selections-note">
-                                                Select up to {q.maxSelections} options.
-                                            </p>
-                                        )}
-                                    </div>
-                                ) : ( // Default to text input for other types or if options are missing
-                                    <input
-                                        type={q.type}
-                                        value={answers[q.id] || ''}
-                                        onChange={(e) => handleChange(q.id, e.target.value, q.type)}
-                                        className="form-input"
-                                    />
-                                )}
+                                <div className="input-with-validation"> {/* Wrapper for input and error icon */}
+                                    {q.type === "radio" && q.options && q.options.length > 0 ? (
+                                        <div className={`radio-group ${validationErrors[q.id] ? 'input-error' : ''}`}> {/* Added input-error class */}
+                                            {q.options.map((option, index) => (
+                                                <label key={index} className="radio-option">
+                                                    <input
+                                                        type="radio"
+                                                        name={`question-${q.id}`}
+                                                        value={option}
+                                                        checked={answers[q.id] === option}
+                                                        onChange={(e) => handleChange(q.id, e.target.value, q.type)}
+                                                        className="form-radio-input"
+                                                    />
+                                                    {option}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    ) : q.type === "checkbox" && q.options && q.options.length > 0 ? (
+                                        <div className={`checkbox-group ${validationErrors[q.id] ? 'input-error' : ''}`}> {/* Added input-error class */}
+                                            {q.options.map((option, index) => (
+                                                <label key={index} className="checkbox-option">
+                                                    <input
+                                                        type="checkbox"
+                                                        name={`question-${q.id}`}
+                                                        value={option}
+                                                        checked={answers[q.id] && answers[q.id].includes(option)}
+                                                        onChange={(e) => handleChange(q.id, e.target.value, q.type)}
+                                                        className="form-checkbox-input"
+                                                    />
+                                                    {option}
+                                                </label>
+                                            ))}
+                                            {q.maxSelections && (
+                                                <p className="max-selections-note">
+                                                    Select up to {q.maxSelections} options.
+                                                </p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <input
+                                            type={q.type}
+                                            value={answers[q.id] || ''}
+                                            onChange={(e) => handleChange(q.id, e.target.value, q.type)}
+                                            className={`form-input ${validationErrors[q.id] ? 'input-error' : ''}`} // Added input-error class
+                                        />
+                                    )}
+                                    {validationErrors[q.id] && (
+                                        <span className="validation-error-icon" title="Please don't send empty.">
+                                            &#9888; {/* Exclamation mark icon */}
+                                        </span>
+                                    )}
+                                </div>
                                 {userExistingAnswers[q.id] && (
                                     <p className="update-note">
                                         Note: You have already answered this question. Submitting will update your answer.
@@ -272,13 +328,13 @@ const QuestionForm = ({ onLogout }) => {
                 )}
 
                 {status === "success" && (
-                    <div style={{ marginTop: 20, color: "green" }}>
+                    <div className="form-status-message success-message">
                         ✅ Your answers were saved/updated!
                     </div>
                 )}
                 {status === "error" && (
-                    <div style={{ marginTop: 20, color: "red" }}>
-                        ❌ Oops! Something went wrong while saving.
+                    <div className="form-status-message error-message">
+                        ❌ Oops! Something went wrong while saving. {fetchError}
                     </div>
                 )}
             </div>
