@@ -1,7 +1,7 @@
 // src/main/java/com/example/backend/model/User.java
 package com.example.backend.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore; // NEW: Import JsonIgnore
+import com.fasterxml.jackson.annotation.JsonProperty; // NEW: Import JsonProperty
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,8 +9,8 @@ import lombok.AllArgsConstructor;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.List; // For potential @OneToMany relationships
-import java.util.ArrayList; // For potential @OneToMany relationships
+import java.util.List;
+import java.util.ArrayList;
 
 @Entity
 @Data
@@ -26,7 +26,10 @@ public class User {
     private String username;
 
     @Column(nullable = false)
-    @JsonIgnore // Do not serialize password
+    // FIX: Use JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    // This allows the password to be written (deserialized) when creating/updating a user
+    // but prevents it from being read (serialized) when sending user data back to the frontend.
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
     @ManyToMany(fetch = FetchType.LAZY)

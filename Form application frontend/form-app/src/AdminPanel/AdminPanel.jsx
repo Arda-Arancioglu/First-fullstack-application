@@ -10,27 +10,36 @@ function AdminPanel({ onLogout }) {
     const [users, setUsers] = useState([]);
     const [forms, setForms] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [error, setError] = useState(null); // General panel error
 
     // Modals state
     const [showUserModal, setShowUserModal] = useState(false);
     const [showFormModal, setShowFormModal] = useState(false);
-    const [showQuestionModal, setShowQuestionModal] = useState(false); // NEW: State for Question Modal
+    const [showQuestionModal, setShowQuestionModal] = useState(false);
 
-    // Current item being edited/added
-    const [currentEditUser, setCurrentEditUser] = useState(null);
+    // Current item being edited/added (for forms and questions)
     const [currentEditForm, setCurrentEditForm] = useState(null);
-    const [currentEditQuestion, setCurrentEditQuestion] = useState(null); // NEW: State for current question being edited
+    const [currentEditQuestion, setCurrentEditQuestion] = useState(null);
 
     // State for managing questions within a specific form
-    const [selectedFormForQuestions, setSelectedFormForQuestions] = useState(null); // NEW: Stores the form whose questions are being managed
-    const [formQuestions, setFormQuestions] = useState([]); // NEW: Stores questions for the selected form
+    const [selectedFormForQuestions, setSelectedFormForQuestions] = useState(null);
+    const [formQuestions, setFormQuestions] = useState([]);
 
     // States for new question input fields in the modal
     const [newQuestionText, setNewQuestionText] = useState('');
     const [newQuestionType, setNewQuestionType] = useState('text');
-    const [newQuestionOptions, setNewQuestionOptions] = useState(''); // Comma-separated string
-    const [newQuestionMaxSelections, setNewQuestionMaxSelections] = useState(''); // For checkbox type
+    const [newQuestionOptions, setNewQuestionOptions] = ''; // Comma-separated string
+    const [newQuestionMaxSelections, setNewQuestionMaxSelections] = ''; // For checkbox type
+
+    // NEW STATES FOR USER MODAL INPUTS
+    const [userModalUsername, setUserModalUsername] = useState('');
+    const [userModalPassword, setUserModalPassword] = useState('');
+    const [userModalRoles, setUserModalRoles] = useState({ ROLE_USER: false, ROLE_ADMIN: false });
+    const [userModalError, setUserModalError] = useState(null); // Specific error for user modal
+
+    // State to hold the user object being edited (null for add new)
+    const [userBeingEdited, setUserBeingEdited] = useState(null);
+
 
     useEffect(() => {
         const user = JSON.parse(localStorage.getItem('user'));
@@ -42,13 +51,23 @@ function AdminPanel({ onLogout }) {
             // If not logged in or not admin, redirect to login page
             onLogout();
         }
-    }, [onLogout]); // Dependency array includes onLogout to re-run if logout logic changes
+    }, [onLogout]);
 
     // Function to fetch all admin-related data (users and forms)
     const fetchAllAdminData = async () => {
         try {
             setLoading(true); // Set loading state to true
             setError(null);    // Clear any previous errors
+
+            // --- ADDED LOGS FOR DEBUGGING TOKEN ---
+            const userInLocalStorage = JSON.parse(localStorage.getItem('user'));
+            console.log('AdminPanel (fetchAllAdminData): User object from localStorage:', userInLocalStorage);
+            if (userInLocalStorage && userInLocalStorage.token) {
+                console.log('AdminPanel (fetchAllAdminData): Token found in localStorage:', userInLocalStorage.token.substring(0, 20) + '...'); // Log first 20 chars
+            } else {
+                console.log('AdminPanel (fetchAllAdminData): No token found in localStorage.');
+            }
+            // --- END ADDED LOGS ---
 
             // Fetch users data from the backend
             const usersRes = await axiosInstance.get('/admin/users');
@@ -76,7 +95,7 @@ function AdminPanel({ onLogout }) {
         }
     };
 
-    // NEW: Function to fetch questions for a specific form
+    // Function to fetch questions for a specific form
     const fetchFormQuestions = async (formId) => {
         try {
             setLoading(true);
@@ -102,10 +121,27 @@ function AdminPanel({ onLogout }) {
 
     // --- User Management Handlers ---
 
+    // Handler for adding a new user
+    const handleAddUser = () => {
+        setUserBeingEdited(null); // Indicate add mode
+        setUserModalUsername('');
+        setUserModalPassword('');
+        setUserModalRoles({ ROLE_USER: true, ROLE_ADMIN: false }); // Default to ROLE_USER
+        setUserModalError(null); // Clear any previous errors
+        setShowUserModal(true);
+    };
+
     // Handler for editing an existing user
     const handleEditUser = (user) => {
-        setCurrentEditUser(user); // Set the user to be edited
-        setShowUserModal(true);   // Open the user modal
+        setUserBeingEdited(user); // Set the user being edited
+        setUserModalUsername(user.username);
+        setUserModalPassword(''); // Password is never pre-filled for security
+        setUserModalRoles({
+            ROLE_USER: user.roles?.some(role => role.name === 'ROLE_USER') || false,
+            ROLE_ADMIN: user.roles?.some(role => role.name === 'ROLE_ADMIN') || false
+        });
+        setUserModalError(null); // Clear any previous errors
+        setShowUserModal(true);
     };
 
     // Handler for deleting a user
@@ -127,21 +163,70 @@ function AdminPanel({ onLogout }) {
     // Handler for submitting the user add/edit form in the modal
     const handleUserModalSubmit = async (e) => {
         e.preventDefault(); // Prevent default form submission behavior
-        try {
-            if (currentEditUser.id) {
-                // If user ID exists, it's an edit operation (PUT request)
-                await axiosInstance.put(`/admin/users/${currentEditUser.id}`, currentEditUser);
-            } else {
-                // If no user ID, it's an add operation (POST request)
-                await axiosInstance.post('/admin/users', currentEditUser);
-            }
-            setShowUserModal(false); // Close the modal
-            fetchAllAdminData();     // Refresh the user list
-        } catch (err) {
-            console.error("Error saving user:", err);
-            setError("Failed to save user."); // Set error message
+        setUserModalError(null); // Clear error on new submission attempt
+
+        // Construct roles array from checkbox states
+        const selectedRoles = [];
+        if (userModalRoles.ROLE_USER) selectedRoles.push({ name: 'ROLE_USER' });
+        if (userModalRoles.ROLE_ADMIN) selectedRoles.push({ name: 'ROLE_ADMIN' });
+
+        // Frontend validation
+        if (!userModalUsername.trim()) {
+            setUserModalError("Username cannot be empty!");
+            return;
         }
+
+        const payload = {
+            username: userModalUsername,
+            roles: selectedRoles
+        };
+
+        if (userBeingEdited) {
+            // Edit operation (PUT)
+            // Only include password if it was explicitly changed
+            if (userModalPassword.trim() !== '') {
+                payload.password = userModalPassword.trim(); // Ensure trimmed password is sent
+            }
+            console.log("Submitting user update payload:", payload); // Log payload
+            try {
+                await axiosInstance.put(`/admin/users/${userBeingEdited.id}`, payload);
+            } catch (err) {
+                console.error("Error updating user:", err);
+                const errorMessage = (err.response && err.response.data) || err.message || err.toString();
+                setUserModalError(`Failed to update user: ${errorMessage}`);
+                return;
+            }
+        } else {
+            // Add operation (POST)
+            // Password is required for new users
+            if (userModalPassword.trim() === '') {
+                setUserModalError("Password is required for new users.");
+                return;
+            }
+            payload.password = userModalPassword.trim(); // Ensure trimmed password is sent for new user
+            console.log("Submitting new user payload:", payload); // Log payload
+            try {
+                await axiosInstance.post('/admin/users', payload);
+            } catch (err) {
+                console.error("Error adding user:", err);
+                const errorMessage = (err.response && err.response.data) || err.message || err.toString();
+                setUserModalError(`Failed to add user: ${errorMessage}`);
+                return;
+            }
+        }
+
+        setShowUserModal(false); // Close the modal on success
+        fetchAllAdminData();     // Refresh the user list
     };
+
+    // Handler for changing user roles via checkboxes
+    const handleUserModalRoleChange = (roleName, isChecked) => {
+        setUserModalRoles(prevRoles => ({
+            ...prevRoles,
+            [roleName]: isChecked
+        }));
+    };
+
 
     // --- Form Management Handlers ---
 
@@ -197,7 +282,7 @@ function AdminPanel({ onLogout }) {
         }
     };
 
-    // --- Question Management Handlers (NEW) ---
+    // --- Question Management Handlers ---
 
     // Handler for adding a new question to the selected form
     const handleAddQuestion = () => {
@@ -294,7 +379,7 @@ function AdminPanel({ onLogout }) {
                 <div className="admin-section-container user-management-section">
                     <h3 className="section-title">User Management</h3>
                     <button
-                        onClick={() => { setCurrentEditUser({}); setShowUserModal(true); }}
+                        onClick={handleAddUser}
                         className="add-button add-user-button"
                     >
                         Add New User
@@ -420,43 +505,58 @@ function AdminPanel({ onLogout }) {
             {showUserModal && (
                 <div className="modal-overlay user-modal-overlay">
                     <div className="modal-content user-modal-content">
-                        <h3 className="modal-title">{currentEditUser.id ? 'Edit User' : 'Add User'}</h3>
+                        <h3 className="modal-title">{userBeingEdited ? 'Edit User' : 'Add User'}</h3>
                         <form onSubmit={handleUserModalSubmit} className="modal-form user-form">
+                            {userModalError && ( // Display user modal error
+                                <div className="error-message modal-error-message">
+                                    ❌ {userModalError}
+                                </div>
+                            )}
                             <div className="modal-form-group">
                                 <label htmlFor="username">Username:</label>
                                 <input
                                     type="text"
                                     id="username"
-                                    value={currentEditUser.username || ''}
-                                    onChange={(e) => setCurrentEditUser({ ...currentEditUser, username: e.target.value })}
+                                    value={userModalUsername}
+                                    onChange={(e) => setUserModalUsername(e.target.value)}
                                     required
                                     className="modal-input"
                                 />
                             </div>
                             <div className="modal-form-group">
-                                <label htmlFor="password">Password (leave blank to keep current):</label>
+                                <label htmlFor="password">Password {userBeingEdited ? '(leave blank to keep current)' : '(required for new user)'}:</label>
                                 <input
                                     type="password"
                                     id="password"
-                                    value={currentEditUser.password || ''}
-                                    onChange={(e) => setCurrentEditUser({ ...currentEditUser, password: e.target.value })}
+                                    value={userModalPassword}
+                                    onChange={(e) => setUserModalPassword(e.target.value)}
+                                    required={!userBeingEdited} // Required only for new users
                                     className="modal-input"
                                 />
                             </div>
+                            {/* Role selection using checkboxes */}
                             <div className="modal-form-group">
-                                <label htmlFor="roles">Roles (comma separated: ROLE_USER, ROLE_ADMIN):</label>
-                                <input
-                                    type="text"
-                                    id="roles"
-                                    value={currentEditUser.roles ? currentEditUser.roles.map(r => r.name).join(', ') : ''}
-                                    onChange={(e) => {
-                                        // Parse roles from string input
-                                        const roleNames = e.target.value.split(',').map(s => s.trim().toUpperCase()).filter(s => s.length > 0);
-                                        const roles = roleNames.map(name => ({ name: `ROLE_${name}` })); // Assuming ERole enum structure
-                                        setCurrentEditUser({ ...currentEditUser, roles: roles });
-                                    }}
-                                    className="modal-input"
-                                />
+                                <label>Roles:</label>
+                                <div className="role-checkbox-group">
+                                    <label className="checkbox-label">
+                                        <input
+                                            type="checkbox"
+                                            checked={userModalRoles.ROLE_USER}
+                                            onChange={(e) => handleUserModalRoleChange('ROLE_USER', e.target.checked)}
+                                            className="role-checkbox-input"
+                                        />
+                                        User
+                                    </label>
+                                    <label className="checkbox-label">
+                                        <input
+                                            type="checkbox"
+                                            checked={userModalRoles.ROLE_ADMIN}
+                                            onChange={(e) => handleUserModalRoleChange('ROLE_ADMIN', e.target.checked)}
+                                            className="role-checkbox-input"
+                                        />
+                                        Admin
+                                    </label>
+                                </div>
                             </div>
                             <div className="modal-footer user-modal-footer">
                                 <button type="button" onClick={() => setShowUserModal(false)} className="cancel-button">
@@ -510,7 +610,7 @@ function AdminPanel({ onLogout }) {
                 </div>
             )}
 
-            {/* Question Modal (NEW) */}
+            {/* Question Modal */}
             {showQuestionModal && (
                 <div className="modal-overlay question-modal-overlay">
                     <div className="modal-content question-modal-content">

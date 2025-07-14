@@ -6,12 +6,12 @@ import com.example.backend.model.Question;
 import com.example.backend.model.Answer;
 import com.example.backend.model.Role;
 import com.example.backend.model.ERole;
-import com.example.backend.model.Form;
+import com.example.backend.model.Form; // Import Form
 import com.example.backend.repository.UserRepository;
 import com.example.backend.repository.QuestionRepository;
 import com.example.backend.repository.AnswerRepository;
 import com.example.backend.repository.RoleRepository;
-import com.example.backend.repository.FormRepository;
+import com.example.backend.repository.FormRepository; // Import FormRepository
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -45,7 +45,7 @@ public class AdminController {
     @Autowired
     PasswordEncoder passwordEncoder;
 
-    @Autowired
+    @Autowired // Autowire FormRepository
     FormRepository formRepository;
 
     // --- USER MANAGEMENT ---
@@ -64,6 +64,11 @@ public class AdminController {
             // Using ResponseEntity with a specific message for better client handling
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null); // Or a custom error object
         }
+        // NEW: Add check for password being null or empty
+        if (user.getPassword() == null || user.getPassword().isEmpty()) {
+            return new ResponseEntity("Password cannot be empty!", HttpStatus.BAD_REQUEST);
+        }
+
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         Set<Role> roles = new HashSet<>();
         if (user.getRoles() == null || user.getRoles().isEmpty()) {
@@ -113,7 +118,7 @@ public class AdminController {
 
                     User updatedUser = userRepository.save(user);
                     return ResponseEntity.ok(updatedUser);
-                }).orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
+                }).orElse(new ResponseEntity<User>(HttpStatus.NOT_FOUND)); // FIX: Explicitly type ResponseEntity
     }
 
     @DeleteMapping("/users/{id}")
@@ -126,11 +131,11 @@ public class AdminController {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 
-    // --- FORM MANAGEMENT ---
+    // --- FORM MANAGEMENT (Admin specific CRUD) ---
 
     @GetMapping("/forms")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<Form>> getAllForms() {
+    public ResponseEntity<List<Form>> getAllFormsAdmin() { // Renamed to avoid conflict with FormController
         List<Form> forms = formRepository.findAll();
         return ResponseEntity.ok(forms);
     }
@@ -155,9 +160,10 @@ public class AdminController {
                 .map(form -> {
                     form.setTitle(formDetails.getTitle());
                     form.setDescription(formDetails.getDescription());
+                    // Note: Questions are managed via separate endpoints for a specific form
                     Form updatedForm = formRepository.save(form);
                     return ResponseEntity.ok(updatedForm);
-                }).orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
+                }).orElse(new ResponseEntity<Form>(HttpStatus.NOT_FOUND)); // FIX: Explicitly type ResponseEntity
     }
 
     @DeleteMapping("/forms/{id}")
@@ -253,9 +259,10 @@ public class AdminController {
         return answerRepository.findById(id)
                 .map(answer -> {
                     answer.setResponse(answerDetails.getResponse());
+                    // You might need to handle updating question and user references if they are part of answerDetails
                     Answer updatedAnswer = answerRepository.save(answer);
                     return ResponseEntity.ok(updatedAnswer);
-                }).orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
+                }).orElse(new ResponseEntity<Answer>(HttpStatus.NOT_FOUND)); // FIX: Explicitly type ResponseEntity
     }
 
     @DeleteMapping("/answers/{id}")

@@ -1,4 +1,4 @@
-// src/main/java/com/example/backend/security/jwt/AuthTokenFilter.java
+// AuthTokenFilter.java
 package com.example.backend.security.jwt;
 
 import com.example.backend.security.services.UserDetailsServiceImpl;
@@ -14,7 +14,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.util.StringUtils; // Import StringUtils
 
 import java.io.IOException;
 
@@ -32,46 +31,38 @@ public class AuthTokenFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         try {
-            String jwt = parseJwt(request); // Use the local parseJwt method for consistency
+            logger.debug("AuthTokenFilter: Processing request for URI: {}", request.getRequestURI());
+            String jwt = jwtUtils.parseJwt(request);
 
             if (jwt != null) {
-                logger.debug("AuthTokenFilter: JWT found in request. Attempting validation...");
+                logger.debug("AuthTokenFilter: JWT found: {}", jwt.substring(0, Math.min(jwt.length(), 20)) + "..."); // Log first 20 chars
                 if (jwtUtils.validateJwtToken(jwt)) {
+                    logger.debug("AuthTokenFilter: JWT is valid.");
                     String username = jwtUtils.getUserNameFromJwtToken(jwt);
-                    logger.debug("AuthTokenFilter: JWT valid for user: {}", username);
+                    logger.debug("AuthTokenFilter: Username from JWT: {}", username);
 
                     UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                    logger.debug("AuthTokenFilter: UserDetails loaded for username: {}", userDetails.getUsername());
+
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(
                                     userDetails,
-                                    null,
-                                    userDetails.getAuthorities());
+                                    null, // Credentials (password) are not needed here as the user is already authenticated via JWT
+                                    userDetails.getAuthorities()); // User's roles/authorities
+
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
-                    logger.debug("AuthTokenFilter: User '{}' authenticated. Roles: {}", username, userDetails.getAuthorities());
+                    logger.debug("AuthTokenFilter: Authentication set in SecurityContextHolder for user: {}", username);
                 } else {
-                    logger.warn("AuthTokenFilter: JWT validation failed for token: {}", jwt);
+                    logger.warn("AuthTokenFilter: JWT validation failed for token: {}", jwt.substring(0, Math.min(jwt.length(), 20)) + "...");
                 }
             } else {
-                logger.debug("AuthTokenFilter: No JWT token found in request for path: {}", request.getRequestURI());
+                logger.debug("AuthTokenFilter: No JWT found in request.");
             }
         } catch (Exception e) {
-            logger.error("AuthTokenFilter: Cannot set user authentication: {}", e.getMessage(), e);
+            logger.error("AuthTokenFilter: Cannot set user authentication: {}", e.getMessage(), e); // Log full stack trace
         }
 
         filterChain.doFilter(request, response);
-    }
-
-    // Helper method to parse JWT from request header
-    private String parseJwt(HttpServletRequest request) {
-        String headerAuth = request.getHeader("Authorization");
-
-        if (StringUtils.hasText(headerAuth) && headerAuth.startsWith("Bearer ")) {
-            String jwt = headerAuth.substring(7);
-            logger.debug("AuthTokenFilter: Extracted JWT from Authorization header: {}", jwt);
-            return jwt;
-        }
-        logger.debug("AuthTokenFilter: No Bearer token found in Authorization header.");
-        return null;
     }
 }
