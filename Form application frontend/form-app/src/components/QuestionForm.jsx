@@ -2,15 +2,17 @@
 import React, { useEffect, useState } from "react";
 import axiosInstance from '../services/axios-instance';
 import './QuestionFormStyle.css'; // Import the CSS file
-import { useNavigate, useParams } from 'react-router-dom'; // NEW: Import useParams
+import { useNavigate, useParams } from 'react-router-dom'; // Import useParams
 
 const QuestionForm = ({ onLogout }) => {
-    const { formId } = useParams(); // NEW: Get formId from URL parameters
+    const { formId } = useParams(); // Get formId from URL parameters
     const [questions, setQuestions] = useState([]);
     const [answers, setAnswers] = useState({});
     const [userExistingAnswers, setUserExistingAnswers] = useState({});
-    const [status, setStatus] = useState(null);
-    const [fetchError, setFetchError] = useState(null);
+    const [status, setStatus] = useState(null); // 'saving', 'success', 'error'
+    const [fetchError, setFetchError] = useState(null); // For errors during initial data fetch
+    const [submissionMessage, setSubmissionMessage] = useState(null); // NEW: For messages after form submission (validation, save success/fail)
+    const [submissionMessageType, setSubmissionMessageType] = useState(null); // NEW: 'success' or 'error' for submission message
     const [loading, setLoading] = useState(true);
     const [validationErrors, setValidationErrors] = useState({});
 
@@ -29,16 +31,17 @@ const QuestionForm = ({ onLogout }) => {
         }
 
         try {
-            setFetchError(null);
-            setStatus(null);
+            setFetchError(null); // Clear fetch errors on new attempt
+            setSubmissionMessage(null); // Clear submission messages
+            setSubmissionMessageType(null);
             setLoading(true);
             setValidationErrors({});
 
-            // NEW: Fetch questions for the specific formId
+            // Fetch questions for the specific formId from /api/forms/{formId}/questions
             const questionsRes = await axiosInstance.get(`/forms/${formId}/questions`);
             setQuestions(questionsRes.data);
 
-            // Fetch user's existing answers (still general, but filtered by question ID later)
+            // Fetch user's existing answers
             const userAnswersRes = await axiosInstance.get("/answers/my-answers");
             const existingAnswersMap = userAnswersRes.data.reduce((acc, answer) => {
                 acc[answer.question.id] = answer;
@@ -67,7 +70,7 @@ const QuestionForm = ({ onLogout }) => {
                 (err.response && err.response.data && err.response.data.message) ||
                 err.message ||
                 err.toString();
-            setFetchError(`Failed to load data: ${errorMessage}`);
+            setFetchError(`Failed to load data: ${errorMessage}`); // Use fetchError for load failures
             setQuestions([]);
             setUserExistingAnswers({});
             setAnswers({});
@@ -82,7 +85,7 @@ const QuestionForm = ({ onLogout }) => {
     // Trigger fetchAllData when component mounts or formId changes
     useEffect(() => {
         fetchAllData();
-    }, [formId, onLogout]); // Add formId to dependency array
+    }, [formId, onLogout]);
 
     // Fetch user's answers for sidebar when sidebar is opened
     useEffect(() => {
@@ -113,11 +116,15 @@ const QuestionForm = ({ onLogout }) => {
     }, [isSidebarOpen, onLogout]);
 
     const handleChange = (questionId, value, type) => {
+        // Clear specific validation error when user starts typing/selecting
         setValidationErrors(prev => {
             const newErrors = { ...prev };
             delete newErrors[questionId];
             return newErrors;
         });
+        // Clear general submission message if user starts interacting
+        setSubmissionMessage(null);
+        setSubmissionMessageType(null);
 
         if (type === 'checkbox') {
             setAnswers(prev => {
@@ -150,6 +157,9 @@ const QuestionForm = ({ onLogout }) => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setStatus("saving");
+        setSubmissionMessage(null); // Clear previous submission message
+        setSubmissionMessageType(null);
+
         const newValidationErrors = {};
         let hasErrors = false;
 
@@ -175,8 +185,9 @@ const QuestionForm = ({ onLogout }) => {
 
         if (hasErrors) {
             setStatus("error");
-            setFetchError("Please fill out all required questions.");
-            return;
+            setSubmissionMessage("Please fill out all required questions."); // Use submissionMessage for validation
+            setSubmissionMessageType('error');
+            return; // Stop submission
         }
 
         const user = JSON.parse(localStorage.getItem("user"));
@@ -184,6 +195,8 @@ const QuestionForm = ({ onLogout }) => {
 
         if (!userId) {
             setStatus("error");
+            setSubmissionMessage("User ID not found. Please log in again.");
+            setSubmissionMessageType('error');
             console.error("User ID not found. Please log in again.");
             onLogout();
             return;
@@ -209,7 +222,8 @@ const QuestionForm = ({ onLogout }) => {
         try {
             const res = await axiosInstance.post("/answers", payload);
             setStatus("success");
-            setFetchError(null);
+            setSubmissionMessage("✅ Your answers were saved/updated!");
+            setSubmissionMessageType('success');
             fetchAllData(); // Re-fetch all data to update existing answers and notes
         } catch (err) {
             console.error("Save failed:", err);
@@ -218,7 +232,8 @@ const QuestionForm = ({ onLogout }) => {
                 (err.response && err.response.data && err.response.data.message) ||
                 err.message ||
                 err.toString();
-            setFetchError(`Failed to save answers: ${errorMessage}`);
+            setSubmissionMessage(`❌ Oops! Something went wrong while saving: ${errorMessage}`);
+            setSubmissionMessageType('error');
             if (err.response && (err.response.status === 401 || err.response.status === 403)) {
                 onLogout();
             }
@@ -229,28 +244,54 @@ const QuestionForm = ({ onLogout }) => {
         setIsSidebarOpen(!isSidebarOpen);
     };
 
+    // Handler to navigate to the Home Page
+    const handleGoToHomePage = () => {
+        navigate('/home');
+    };
+
+    // Only show full-screen loading/error if it's a fetch error
     if (loading) return <div className="text-center p-4">Loading form...</div>;
     if (fetchError) return <div className="text-center p-4 text-red-500">❌ {fetchError}</div>;
 
     return (
         <div className="main-container">
-            {/* Circular Profile Icon Button */}
-            <button
-                onClick={toggleSidebar}
-                className="profile-button"
-                aria-label="Open Profile Sidebar"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" className="icon-svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 0 00-7-7z" />
-                </svg>
-            </button>
+            {/* Navigation Buttons Container */}
+            <div className="navigation-buttons-container">
+                {/* Homepage Button */}
+                <button
+                    onClick={handleGoToHomePage}
+                    className="homepage-button"
+                    aria-label="Go to Home Page"
+                >
+                    Home
+                </button>
+
+                {/* Circular Profile Icon Button */}
+                <button
+                    onClick={toggleSidebar}
+                    className="profile-button"
+                    aria-label="Open Profile Sidebar"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="icon-svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 0 00-7-7z" />
+                    </svg>
+                </button>
+            </div>
+
 
             <div className="div-wrapping-container">
-                <h1 className="form-title-in-box">Questionnaire</h1> {/* Changed title */}
+                <h1 className="form-title-in-box">Questionnaire</h1>
                 {questions.length === 0 ? (
                     <p>No questions available for this form.</p>
                 ) : (
                     <form className="form-class" onSubmit={handleSubmit}>
+                        {/* NEW: Display submission message here */}
+                        {submissionMessage && (
+                            <div className={`form-submission-message ${submissionMessageType === 'success' ? 'success' : 'error'}`}>
+                                {submissionMessage}
+                            </div>
+                        )}
+
                         {questions.map((q) => (
                             <div key={q.id} className="mb-4 question-item">
                                 <label>{q.questionText}</label>
@@ -301,7 +342,7 @@ const QuestionForm = ({ onLogout }) => {
                                         />
                                     )}
                                     {validationErrors[q.id] && (
-                                        <span className="validation-error-icon" title="Please don't send empty.">
+                                        <span className="validation-error-icon" title="This field is required.">
                                             &#9888;
                                         </span>
                                     )}
@@ -320,17 +361,6 @@ const QuestionForm = ({ onLogout }) => {
                             {status === "saving" ? "Saving…" : "Submit"}
                         </button>
                     </form>
-                )}
-
-                {status === "success" && (
-                    <div className="form-status-message success-message">
-                        ✅ Your answers were saved/updated!
-                    </div>
-                )}
-                {status === "error" && (
-                    <div className="form-status-message error-message">
-                        ❌ Oops! Something went wrong while saving. {fetchError}
-                    </div>
                 )}
             </div>
 

@@ -34,8 +34,8 @@ function HomePage({ onLogout }) {
                     err.toString();
                 setFormsError(`Failed to load forms: ${errorMessage}`);
                 if (err.response && (err.response.status === 401 || err.response.status === 403)) {
-                    console.log("error.response", err.response)
-                    // onLogout(); // Log out if unauthorized
+                    console.log("error.response", err.resp)
+                    onLogout(); // Log out if unauthorized
                 }
             } finally {
                 setLoadingForms(false);
