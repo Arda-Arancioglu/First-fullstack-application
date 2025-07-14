@@ -4,13 +4,16 @@ import { BrowserRouter as Router, Route, Routes, Navigate, Link } from 'react-ro
 
 import LandingP from "./LandingPage/LandingP";
 import RegisterP from "./RegisterPage/Register";
-import QuestionForm from "./components/QuestionForm"; // Corrected path for QuestionForm
-import AdminPanel from "./AdminPanel/AdminPanel"; // Import the AdminPanel
-import HomePage from './HomePage/HomePage'; // Import the HomePage component
+import QuestionForm from "./components/QuestionForm";
+import AdminPanel from "./AdminPanel/AdminPanel";
+import HomePage from './HomePage/HomePage';
+import ChatbotWidget from './ChatbotWidget/ChatbotWidget'; // NEW: Import the ChatbotWidget component
+import { useSingleTabEnforcer } from './Utils/useSingleTabEnforcer';
 
 function App() {
     const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('user'));
     const [currentUser, setCurrentUser] = useState(null);
+    const [showTabAlert, setShowTabAlert] = useState(false);
 
     useEffect(() => {
         const user = JSON.parse(localStorage.getItem('user'));
@@ -26,7 +29,6 @@ function App() {
     const handleLoginSuccess = () => {
         setIsLoggedIn(true);
         setCurrentUser(JSON.parse(localStorage.getItem('user')));
-        // The redirect logic for login success will now be handled by the Routes below
     };
 
     const handleRegisterSuccess = () => {
@@ -37,32 +39,41 @@ function App() {
         localStorage.removeItem('user');
         setIsLoggedIn(false);
         setCurrentUser(null);
-        // Force a reload or specific navigation to ensure full state reset
-        window.location.href = '/login'; // This ensures a full reset of the app state
+        window.location.href = '/login';
     };
 
-    // Helper to check if the current user has the ADMIN role
     const isAdmin = currentUser && currentUser.roles && currentUser.roles.includes('ROLE_ADMIN');
+
+    useSingleTabEnforcer(
+        () => {
+            if (!showTabAlert) {
+                alert("You can only open one tab at a time. This tab will be inactive.");
+                setShowTabAlert(true);
+            }
+        },
+        () => {
+            console.log("This tab has lost its main active status unexpectedly.");
+        }
+    );
 
     return (
         <Router>
             <Routes>
                 {/* Public routes */}
-                {/* Redirect from /login: If logged in, check if admin or regular user */}
                 <Route path="/login" element={
                     isLoggedIn ? (isAdmin ? <Navigate to="/admin" /> : <Navigate to="/home" />) : <LandingP onLogin={handleLoginSuccess} />
                 } />
                 <Route path="/register" element={isLoggedIn ? <Navigate to="/home" /> : <RegisterP onRegister={handleRegisterSuccess} />} />
 
-                {/* NEW: Protected route for HomePage (lists forms) */}
+                {/* Protected route for HomePage */}
                 <Route
                     path="/home"
                     element={isLoggedIn ? <HomePage onLogout={handleLogout} /> : <Navigate to="/login" />}
                 />
 
-                {/* NEW: Protected route for QuestionForm (specific form questions) */}
+                {/* Protected route for QuestionForm - now accepts formId parameter */}
                 <Route
-                    path="/forms/:formId/questions" // Updated path to include formId
+                    path="/forms/:formId/questions"
                     element={isLoggedIn ? <QuestionForm onLogout={handleLogout} /> : <Navigate to="/login" />}
                 />
 
@@ -78,6 +89,8 @@ function App() {
                     element={isLoggedIn ? (isAdmin ? <Navigate to="/admin" /> : <Navigate to="/home" />) : <Navigate to="/login" />}
                 />
             </Routes>
+            {/* NEW: Render the ChatbotWidget outside of Routes so it appears on all pages */}
+            {isLoggedIn && <ChatbotWidget onLogout={handleLogout} />}
         </Router>
     );
 }
