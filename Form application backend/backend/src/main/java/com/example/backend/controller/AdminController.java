@@ -6,10 +6,12 @@ import com.example.backend.model.Question;
 import com.example.backend.model.Answer;
 import com.example.backend.model.Role;
 import com.example.backend.model.ERole;
+import com.example.backend.model.Form;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.repository.QuestionRepository;
 import com.example.backend.repository.AnswerRepository;
 import com.example.backend.repository.RoleRepository;
+import com.example.backend.repository.FormRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -42,6 +45,9 @@ public class AdminController {
     @Autowired
     PasswordEncoder passwordEncoder;
 
+    @Autowired
+    FormRepository formRepository;
+
     // --- USER MANAGEMENT ---
 
     @GetMapping("/users")
@@ -55,7 +61,8 @@ public class AdminController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<User> createUser(@RequestBody User user) {
         if (userRepository.findByUsername(user.getUsername()).isPresent()) {
-            return new ResponseEntity("Username is already taken!", HttpStatus.BAD_REQUEST);
+            // Using ResponseEntity with a specific message for better client handling
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null); // Or a custom error object
         }
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         Set<Role> roles = new HashSet<>();
@@ -119,44 +126,108 @@ public class AdminController {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 
-    // --- QUESTION MANAGEMENT ---
+    // --- FORM MANAGEMENT ---
 
-    @GetMapping("/questions")
+    @GetMapping("/forms")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<Question>> getAllQuestions() {
-        List<Question> questions = questionRepository.findAll();
+    public ResponseEntity<List<Form>> getAllForms() {
+        List<Form> forms = formRepository.findAll();
+        return ResponseEntity.ok(forms);
+    }
+
+    @PostMapping("/forms")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Form> createForm(@RequestBody Form form) {
+        if (form.getTitle() == null || form.getTitle().trim().isEmpty()) {
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        }
+        if (formRepository.findByTitle(form.getTitle()).isPresent()) {
+            return new ResponseEntity<>(HttpStatus.CONFLICT);
+        }
+        Form newForm = formRepository.save(form);
+        return ResponseEntity.status(HttpStatus.CREATED).body(newForm);
+    }
+
+    @PutMapping("/forms/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Form> updateForm(@PathVariable Long id, @RequestBody Form formDetails) {
+        return formRepository.findById(id)
+                .map(form -> {
+                    form.setTitle(formDetails.getTitle());
+                    form.setDescription(formDetails.getDescription());
+                    Form updatedForm = formRepository.save(form);
+                    return ResponseEntity.ok(updatedForm);
+                }).orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
+    }
+
+    @DeleteMapping("/forms/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<HttpStatus> deleteForm(@PathVariable Long id) {
+        if (!formRepository.existsById(id)) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        formRepository.deleteById(id);
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    }
+
+    // --- QUESTION MANAGEMENT (UPDATED TO BE FORM-SPECIFIC) ---
+
+    @GetMapping("/forms/{formId}/questions")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<Question>> getQuestionsByFormId(@PathVariable Long formId) {
+        Optional<Form> formOptional = formRepository.findById(formId);
+        if (formOptional.isEmpty()) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        List<Question> questions = questionRepository.findByFormId(formId);
         return ResponseEntity.ok(questions);
     }
 
-    @PostMapping("/questions")
+    @PostMapping("/forms/{formId}/questions")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Question> createQuestion(@RequestBody Question question) {
-        // The incoming Question object can now include 'options' and 'maxSelections'
+    public ResponseEntity<Question> createQuestionForForm(@PathVariable Long formId, @RequestBody Question question) {
+        Optional<Form> formOptional = formRepository.findById(formId);
+        if (formOptional.isEmpty()) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        question.setForm(formOptional.get());
         Question newQuestion = questionRepository.save(question);
         return ResponseEntity.status(HttpStatus.CREATED).body(newQuestion);
     }
 
-    @PutMapping("/questions/{id}")
+    @PutMapping("/forms/{formId}/questions/{questionId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Question> updateQuestion(@PathVariable Long id, @RequestBody Question questionDetails) {
-        return questionRepository.findById(id)
-                .map(question -> {
-                    question.setQuestionText(questionDetails.getQuestionText());
-                    question.setType(questionDetails.getType());
-                    question.setOptions(questionDetails.getOptions());
-                    question.setMaxSelections(questionDetails.getMaxSelections()); // NEW: Update maxSelections
-                    Question updatedQuestion = questionRepository.save(question);
-                    return ResponseEntity.ok(updatedQuestion);
-                }).orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
-    }
-
-    @DeleteMapping("/questions/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<HttpStatus> deleteQuestion(@PathVariable Long id) {
-        if (!questionRepository.existsById(id)) {
+    public ResponseEntity<Question> updateQuestionForForm(@PathVariable Long formId, @PathVariable Long questionId, @RequestBody Question questionDetails) {
+        Optional<Question> questionOptional = questionRepository.findById(questionId);
+        if (questionOptional.isEmpty()) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
-        questionRepository.deleteById(id);
+        Question question = questionOptional.get();
+        if (question.getForm() == null || !question.getForm().getId().equals(formId)) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+
+        question.setQuestionText(questionDetails.getQuestionText());
+        question.setType(questionDetails.getType());
+        question.setOptions(questionDetails.getOptions());
+        question.setMaxSelections(questionDetails.getMaxSelections());
+
+        Question updatedQuestion = questionRepository.save(question);
+        return ResponseEntity.ok(updatedQuestion);
+    }
+
+    @DeleteMapping("/forms/{formId}/questions/{questionId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<HttpStatus> deleteQuestionFromForm(@PathVariable Long formId, @PathVariable Long questionId) {
+        Optional<Question> questionOptional = questionRepository.findById(questionId);
+        if (questionOptional.isEmpty()) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        Question question = questionOptional.get();
+        if (question.getForm() == null || !question.getForm().getId().equals(formId)) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        questionRepository.deleteById(questionId);
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 
@@ -171,9 +242,9 @@ public class AdminController {
 
     @PostMapping("/answers")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Answer> createAnswer(@RequestBody Answer answer) {
-        Answer newAnswer = answerRepository.save(answer);
-        return ResponseEntity.status(HttpStatus.CREATED).body(newAnswer);
+    public ResponseEntity<List<Answer>> createAnswer(@RequestBody List<Answer> answers) { // Changed to List<Answer>
+        List<Answer> newAnswers = answerRepository.saveAll(answers); // Save all
+        return ResponseEntity.status(HttpStatus.CREATED).body(newAnswers);
     }
 
     @PutMapping("/answers/{id}")
@@ -182,7 +253,6 @@ public class AdminController {
         return answerRepository.findById(id)
                 .map(answer -> {
                     answer.setResponse(answerDetails.getResponse());
-                    // You might need to handle updating question and user references if they are part of answerDetails
                     Answer updatedAnswer = answerRepository.save(answer);
                     return ResponseEntity.ok(updatedAnswer);
                 }).orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));

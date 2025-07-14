@@ -1,10 +1,10 @@
-// JwtUtils.java
+// src/main/java/com/example/backend/security/jwt/JwtUtils.java
 package com.example.backend.security.jwt;
 
 import com.example.backend.security.services.UserDetailsImpl;
 import io.jsonwebtoken.*;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.SignatureException; // Explicitly import SignatureException
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 
@@ -20,7 +21,7 @@ import java.util.Date;
 public class JwtUtils {
     private static final Logger logger = LoggerFactory.getLogger(JwtUtils.class);
 
-    @Value("${backend.app.jwtSecret}")
+    @Value("${backend.app.jwtSecret}") // Ensure this matches application.properties
     private String jwtSecret;
 
     @Value("${backend.app.jwtExpirationMs}")
@@ -37,8 +38,11 @@ public class JwtUtils {
                 .compact();
     }
 
+    // MODIFIED KEY METHOD: Using plain string bytes
     private Key key() {
-        return Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret));
+        // Ensure the secret key is long enough (at least 256 bits or 32 characters for HS256)
+        // and convert it to bytes using UTF-8 encoding.
+        return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
     public String getUserNameFromJwtToken(String token) {
@@ -58,6 +62,8 @@ public class JwtUtils {
             logger.error("JWT token is unsupported: {}", e.getMessage());
         } catch (IllegalArgumentException e) {
             logger.error("JWT claims string is empty: {}", e.getMessage());
+        } catch (SignatureException e) { // Added for explicit signature mismatch
+            logger.error("Invalid JWT signature: {}", e.getMessage());
         }
         return false;
     }

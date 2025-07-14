@@ -1,18 +1,16 @@
 // src/main/java/com/example/backend/model/Question.java
 package com.example.backend.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore; // NEW: Import JsonIgnore
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 public class Question {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -26,6 +24,23 @@ public class Question {
     @Column(name = "option_text")
     private List<String> options = new ArrayList<>();
 
-    // NEW: Field to store maximum selections for 'checkbox' type questions
-    private Integer maxSelections; // Use Integer to allow null if not applicable
+    private Integer maxSelections; // For 'checkbox' type questions
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "form_id")
+    @JsonIgnore // NEW: Ignore this field during JSON serialization to prevent infinite recursion
+    private Form form;
+
+    public Question(Long id, String questionText, String type, List<String> options, Integer maxSelections, Form form) {
+        this.id = id;
+        this.questionText = questionText;
+        this.type = type;
+        this.options = options != null ? options : new ArrayList<>();
+        this.maxSelections = maxSelections;
+        this.form = form;
+    }
+
+    public Question(Long id, String questionText, String type, Form form) {
+        this(id, questionText, type, new ArrayList<>(), null, form);
+    }
 }

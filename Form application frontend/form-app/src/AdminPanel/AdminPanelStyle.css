@@ -203,7 +203,9 @@ body {
 .modal-form-group input[type="text"],
 .modal-form-group input[type="password"],
 .modal-form-group input[type="number"],
-.modal-form-group select {
+.modal-form-group select,
+.modal-form-group textarea {
+  /* Added textarea here */
   width: 100%;
   padding: 0.5rem 0.75rem;
   border: 1px solid #5a606b; /* Darker medium gray border */
@@ -221,7 +223,9 @@ body {
 }
 
 .modal-form-group input:focus,
-.modal-form-group select:focus {
+.modal-form-group select:focus,
+.modal-form-group textarea:focus {
+  /* Added textarea here */
   border-color: #3b82f6; /* blue-500 */
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
 }

@@ -1,24 +1,54 @@
 // src/services/axios-instance.js
 import axios from 'axios';
 
-const instance = axios.create({
-  baseURL: 'http://localhost:8080/api/', // This is crucial!
-  headers: {
-    'Content-Type': 'application/json',
-  },
+// Create an Axios instance
+const axiosInstance = axios.create({
+    baseURL: 'http://localhost:8080/api', // Your backend API base URL
+    headers: {
+        'Content-Type': 'application/json',
+    },
 });
 
-instance.interceptors.request.use(
-  (config) => {
-    const user = JSON.parse(localStorage.getItem('user')); // Get the stored user object
-    if (user && user.token) {
-      config.headers['Authorization'] = 'Bearer ' + user.token; // Add the JWT to the header
+// Request interceptor to add the JWT token to headers
+axiosInstance.interceptors.request.use(
+    (config) => {
+        try {
+            const user = JSON.parse(localStorage.getItem('user')); // Get user data from localStorage
+            const token = user ? user.token : null; // Extract the token
+
+            if (token) {
+                // If a token exists, add it to the Authorization header
+                config.headers.Authorization = `Bearer ${token}`;
+                console.log('Axios Interceptor: Token attached to request headers.');
+            } else {
+                console.log('Axios Interceptor: No token found in localStorage for this request.');
+            }
+        } catch (e) {
+            console.error('Axios Interceptor Error parsing user from localStorage:', e);
+        }
+        return config;
+    },
+    (error) => {
+        // Handle request errors
+        console.error('Axios Interceptor Request Error:', error);
+        return Promise.reject(error);
     }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
 );
 
-export default instance;
+// Response interceptor (optional, but good for handling 401/403 globally)
+axiosInstance.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        // If a 401 or 403 response is received, it might mean the token is expired or invalid
+        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+            console.error('Axios Interceptor: Authentication error (401/403). Token expired or invalid. Logging out...');
+            localStorage.removeItem('user'); // Clear invalid user data
+            // The App.jsx's onLogout will handle the redirect.
+            // window.location.href = '/login'; // You could force redirect here if needed
+        }
+        console.error('Axios Interceptor Response Error:', error);
+        return Promise.reject(error);
+    }
+);
+
+export default axiosInstance;
