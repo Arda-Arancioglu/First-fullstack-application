@@ -1,17 +1,13 @@
+// backend/build.gradle
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.1.0'
-    id 'io.spring.dependency-management' version '1.1.7'
+    id 'org.springframework.boot' version '3.1.0' // Ensure your Spring Boot version is correct
+    id 'io.spring.dependency-management' version '1.1.0'
 }
 
 group = 'com.example'
 version = '0.0.1-SNAPSHOT'
-
-java { // Add this block
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
-    }
-}
+sourceCompatibility = '17' // Or your Java version
 
 configurations {
     compileOnly {
@@ -25,23 +21,30 @@ repositories {
 
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-validation' // For validation annotations
+
+    // MySQL JDBC Driver - THIS IS CRUCIAL!
+    // Use 'mysql-connector-java' for older Spring Boot versions or if specifically needed.
+    // implementation 'mysql:mysql-connector-java:8.0.33'
+
+    // For newer Spring Boot versions (3.x and above), 'mysql-connector-j' is often preferred.
+    // Ensure you have *one* of these, not both.
+    implementation 'com.mysql:mysql-connector-j:8.2.0' // Or the latest stable version if 8.0.33 causes issues
+
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
-
-    runtimeOnly 'com.h2database:h2'
-
-    implementation 'org.springframework.boot:spring-boot-starter-security'
-    implementation 'org.springframework.boot:spring-boot-starter-validation'
-
-    // implementation 'javax.xml.bind:jaxb-api:2.3.1' // Remove this line if you haven't already
-
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'org.springframework.security:spring-security-test'
 
+    // JWT Library dependencies
     implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+
+    // For loading .env files locally (if you are using this approach)
+    implementation 'io.github.cdimascio:dotenv-java:2.3.0' // Or the latest version
 }
 
 tasks.named('test') {

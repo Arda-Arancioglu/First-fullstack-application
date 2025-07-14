@@ -20,11 +20,32 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.ArrayList; // Explicitly added for clarity, though typically covered by java.util.*
-import java.util.List; // Explicitly added for clarity
+import java.util.ArrayList;
+import java.util.List;
+
+// NEW: Import Dotenv for loading .env files
+import io.github.cdimascio.dotenv.Dotenv;
 
 @SpringBootApplication
 public class BackendApplication {
+
+    // NEW: Static block to load .env file before Spring context initializes
+    static {
+        try {
+            // Load .env file from the current working directory (backend project root)
+            Dotenv dotenv = Dotenv.load();
+            // Set each environment variable from .env as a system property
+            // Spring Boot can then pick these up via ${ENV_VAR_NAME} in application.properties
+            dotenv.entries().forEach(entry -> System.setProperty(entry.getKey(), entry.getValue()));
+            System.out.println("BackendApplication: .env file loaded successfully.");
+        } catch (Exception e) {
+            // This catch block handles cases where the .env file might not exist
+            // (e.g., in production environments where environment variables are set directly)
+            System.out.println("BackendApplication: Warning: .env file not found or could not be loaded. Relying on system environment variables.");
+            // Log the full exception for debugging if needed, but avoid in production for security
+            // e.printStackTrace();
+        }
+    }
 
     public static void main(String[] args) {
         SpringApplication.run(BackendApplication.class, args);
