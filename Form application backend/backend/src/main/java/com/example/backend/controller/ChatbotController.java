@@ -6,7 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import reactor.core.publisher.Mono;
+// import reactor.core.publisher.Mono; // Removed: No longer using Mono directly here
 
 import java.util.List;
 import java.util.Map;
@@ -24,7 +24,7 @@ public class ChatbotController {
     }
 
     /**
-     * Endpoint to send a message to the OpenAI (ChatGPT) chatbot and get a response.
+     * Endpoint to send a message to the Ollama chatbot and get a response.
      * This endpoint requires authentication (USER or ADMIN role).
      *
      * The request body is expected to be a JSON object like:
@@ -37,21 +37,27 @@ public class ChatbotController {
      * }
      *
      * @param requestBody A map containing the "message" (current user input) and "chatHistory" (optional).
-     * @return A Mono of ResponseEntity containing the chatbot's response.
+     * @return A ResponseEntity containing the chatbot's response as a String.
      */
     @PostMapping("/chat")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
-    public Mono<ResponseEntity<String>> chatWithDeepSeek(@RequestBody Map<String, Object> requestBody) {
+    public ResponseEntity<String> chatWithOllama(@RequestBody Map<String, Object> requestBody) { // Changed return type
         String userMessage = (String) requestBody.get("message");
         // Cast chatHistory to List<Map<String, String>>
         List<Map<String, String>> chatHistory = (List<Map<String, String>>) requestBody.get("chatHistory");
 
         if (userMessage == null || userMessage.trim().isEmpty()) {
-            return Mono.just(ResponseEntity.badRequest().body("Message cannot be empty."));
+            return ResponseEntity.badRequest().body("Message cannot be empty.");
         }
 
-        return openaiService.getChatCompletion(userMessage, chatHistory) // Call openaiService
-                .map(ResponseEntity::ok)
-                .defaultIfEmpty(ResponseEntity.internalServerError().body("Failed to get response from chatbot."));
+        try {
+            // Call the OpenAIService (now configured for Ollama) which returns a String
+            String botResponse = openaiService.getChatCompletion(userMessage, chatHistory);
+            return ResponseEntity.ok(botResponse);
+        } catch (Exception e) {
+            // Log the error and return an appropriate HTTP 500 response
+            // The OpenAIService already logs, but this ensures a proper HTTP response to the client
+            return ResponseEntity.internalServerError().body("Failed to get response from chatbot: " + e.getMessage());
+        }
     }
 }
