@@ -3,7 +3,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import axiosInstance from '../services/axios-instance'; // Your authenticated axios instance
 import './ChatbotWidgetStyle.css'; // We will create this CSS file next
 
-function ChatbotWidget({ onLogout, currentUser }) { // NEW: Accept currentUser prop
+// NEW: Accept isMainTab prop
+function ChatbotWidget({ onLogout, currentUser, isMainTab }) {
     const [isOpen, setIsOpen] = useState(false); // State to control widget visibility
     const [messages, setMessages] = useState([]); // Stores { id, role: 'user' | 'assistant', content: 'message', timestamp }
     const [inputMessage, setInputMessage] = useState('');
@@ -59,17 +60,20 @@ function ChatbotWidget({ onLogout, currentUser }) { // NEW: Accept currentUser p
                 setMessages(fetchedMessages);
                 console.log(`Frontend: Loaded ${fetchedMessages.length} messages for user ${userId}.`);
 
-                // Add initial welcome message if chat is empty after loading
-                if (fetchedMessages.length === 0) {
-                    setMessages([{ id: 'welcome', role: 'assistant', content: 'Hi there! How can I help you today?', timestamp: new Date().toISOString() }]);
-                }
+                // The initial welcome message is now handled by the backend
+                // No need for frontend logic to add it if empty
             } catch (err) {
                 console.error("Backend: Error fetching messages:", err);
-                const errorMessage =
-                    (err.response && err.response.data && err.response.data.message) ||
-                    err.message ||
-                    err.toString();
-                setError(`Failed to load chat history: ${errorMessage}`); // Set error message
+                // Check if the error is due to our axios interceptor cancelling the request
+                if (axiosInstance.isCancel(err) && err.message === 'Request cancelled: Not the main active tab.') {
+                    setError("Chat is inactive. Please use the main tab.");
+                } else {
+                    const errorMessage =
+                        (err.response && err.response.data && err.response.data.message) ||
+                        err.message ||
+                        err.toString();
+                    setError(`Failed to load chat history: ${errorMessage}`); // Set error message
+                }
                 setMessages([]); // Clear messages on error
                 // If unauthorized, trigger logout
                 if (err.response && (err.response.status === 401 || err.response.status === 403)) {
@@ -80,9 +84,17 @@ function ChatbotWidget({ onLogout, currentUser }) { // NEW: Accept currentUser p
             }
         };
 
-        fetchChatHistory();
-        // This effect runs when userId changes, ensuring history is loaded for the correct user
-    }, [userId, onLogout]); // Dependencies: userId and onLogout
+        // Only fetch chat history if this is the main tab
+        if (isMainTab) {
+            fetchChatHistory();
+        } else {
+            console.log("ChatbotWidget: Not main tab, skipping chat history fetch.");
+            setMessages([]); // Clear messages if not main tab
+            setError("Chat is inactive. Please use the main tab.");
+            setIsLoadingChat(false);
+        }
+        // This effect runs when userId or isMainTab changes
+    }, [userId, onLogout, isMainTab]); // Dependencies: userId, onLogout, isMainTab
 
     // Auto-scroll to the latest message whenever messages change
     useEffect(() => {
@@ -99,6 +111,12 @@ function ChatbotWidget({ onLogout, currentUser }) { // NEW: Accept currentUser p
     const handleClearChat = async () => {
         if (!userId) {
             setError("Chat system not ready to clear history.");
+            return;
+        }
+
+        // NEW: Check isMainTab before proceeding
+        if (!isMainTab) {
+            setError("Cannot clear chat. This is not the main active tab.");
             return;
         }
 
@@ -124,11 +142,16 @@ function ChatbotWidget({ onLogout, currentUser }) { // NEW: Accept currentUser p
                 console.log("Frontend: Chat history cleared for user:", userId);
             } catch (err) {
                 console.error("Frontend: Error clearing chat history:", err);
-                const errorMessage =
-                    (err.response && err.response.data && err.response.data.message) ||
-                    err.message ||
-                    err.toString();
-                setError(`Failed to clear chat history: ${errorMessage}`);
+                // Check if the error is due to our axios interceptor cancelling the request
+                if (axiosInstance.isCancel(err) && err.message === 'Request cancelled: Not the main active tab.') {
+                    setError("Cannot clear chat. This is not the main active tab.");
+                } else {
+                    const errorMessage =
+                        (err.response && err.response.data && err.response.data.message) ||
+                        err.message ||
+                        err.toString();
+                    setError(`Failed to clear chat history: ${errorMessage}`);
+                }
                 if (err.response && (err.response.status === 401 || err.response.status === 403)) {
                     onLogout();
                 }
@@ -143,6 +166,12 @@ function ChatbotWidget({ onLogout, currentUser }) { // NEW: Accept currentUser p
 
     const handleSendMessage = async (e) => {
         e.preventDefault();
+        // NEW: Check isMainTab before proceeding
+        if (!isMainTab) {
+            setError("Cannot send message. This is not the main active tab.");
+            return;
+        }
+
         if (!inputMessage.trim() || isSending || !userId) {
             if (!userId) setError("Chat system not ready. Please wait.");
             return;
@@ -174,7 +203,7 @@ function ChatbotWidget({ onLogout, currentUser }) { // NEW: Accept currentUser p
                 chatHistory: chatHistoryForAPI // Pass the history to your backend for LLM context
             });
 
-            // NEW: Directly append the AI's response from the backend to the messages
+            // Directly append the AI's response from the backend to the messages
             // Assuming the backend returns the AI's response content directly in response.data
             const aiResponseContent = response.data;
             const newAiMessage = { id: Date.now() + 1, role: 'assistant', content: aiResponseContent, timestamp: new Date().toISOString() };
@@ -183,13 +212,18 @@ function ChatbotWidget({ onLogout, currentUser }) { // NEW: Accept currentUser p
 
         } catch (err) {
             console.error("Frontend: Error sending message to chatbot backend:", err);
-            const errorMessage =
-                (err.response && err.response.data && err.response.data.message) ||
-                err.message ||
-                err.toString();
-            setError(`Failed to get response: ${errorMessage}`);
-            // If there's an error, add an error message to the chat
-            setMessages(prevMessages => [...prevMessages, { id: Date.now(), role: 'assistant', content: `Error: ${errorMessage}`, timestamp: new Date().toISOString() }]);
+            // Check if the error is due to our axios interceptor cancelling the request
+            if (axiosInstance.isCancel(err) && err.message === 'Request cancelled: Not the main active tab.') {
+                setError("Cannot send message. This is not the main active tab.");
+            } else {
+                const errorMessage =
+                    (err.response && err.response.data && err.response.data.message) ||
+                    err.message ||
+                    err.toString();
+                setError(`Failed to get response: ${errorMessage}`);
+                // If there's an error, add an error message to the chat
+                setMessages(prevMessages => [...prevMessages, { id: Date.now(), role: 'assistant', content: `Error: ${errorMessage}`, timestamp: new Date().toISOString() }]);
+            }
             if (err.response && (err.response.status === 401 || err.response.status === 403)) {
                 onLogout(); // Log out if unauthorized
             }
@@ -197,6 +231,8 @@ function ChatbotWidget({ onLogout, currentUser }) { // NEW: Accept currentUser p
             setIsSending(false);
         }
     };
+
+    const isChatDisabled = isSending || isLoadingChat || !userId || !isMainTab;
 
     return (
         <>
@@ -217,14 +253,16 @@ function ChatbotWidget({ onLogout, currentUser }) { // NEW: Accept currentUser p
             {/* Chatbot Widget Panel */}
             <div className={`chatbot-widget-panel ${isOpen ? 'open' : ''}`}>
                 <div className="widget-header">
-                    <h3 className="widget-title">AI Assistant</h3>
-                    {/* Display full userId for debugging, then can shorten */}
-                    {userId && <span className="user-id-display">User ID: {userId}</span>}
-                    <button onClick={handleClearChat} className="clear-chat-button" aria-label="Clear Chat">
+                    {/* Clear Chat button moved to the left */}
+                    <button onClick={handleClearChat} className="clear-chat-button" aria-label="Clear Chat" disabled={isChatDisabled}>
                         Clear Chat
                     </button>
+                    <h3 className="widget-title">AI Assistant</h3>
+                    {/* User ID display removed */}
                     <button onClick={toggleWidget} className="widget-close-button" aria-label="Close Chatbot">
-                        &times;
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4 h-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
                     </button>
                 </div>
                 <div className="messages-display">
@@ -246,6 +284,11 @@ function ChatbotWidget({ onLogout, currentUser }) { // NEW: Accept currentUser p
                 </div>
 
                 {error && <div className="chat-error-message">❌ {error}</div>}
+                {!isMainTab && (
+                    <div className="chat-inactive-message">
+                        This tab is inactive. Please switch to the main tab to chat.
+                    </div>
+                )}
 
                 <form onSubmit={handleSendMessage} className="message-input-form">
                     <input
@@ -253,10 +296,10 @@ function ChatbotWidget({ onLogout, currentUser }) { // NEW: Accept currentUser p
                         value={inputMessage}
                         onChange={(e) => setInputMessage(e.target.value)}
                         placeholder="Type your message..."
-                        disabled={isSending || isLoadingChat || !userId}
+                        disabled={isChatDisabled}
                         className="message-input"
                     />
-                    <button type="submit" disabled={isSending || isLoadingChat || !userId} className="send-button">
+                    <button type="submit" disabled={isChatDisabled} className="send-button">
                         {isSending ? 'Sending...' : 'Send'}
                     </button>
                 </form>
