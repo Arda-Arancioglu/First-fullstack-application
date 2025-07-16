@@ -1,5 +1,6 @@
 // src/services/axios-instance.js
 import axios from 'axios';
+import { getAxiosMainTabStatus, setAxiosMultipleTabsDetectedCallback } from '../Utils/useSingleTabEnforcer'; // Import the status getter
 
 // Create an Axios instance
 const axiosInstance = axios.create({
@@ -9,9 +10,19 @@ const axiosInstance = axios.create({
     },
 });
 
-// Request interceptor to add the JWT token to headers
+// Request interceptor to add the JWT token to headers and check tab status
 axiosInstance.interceptors.request.use(
     (config) => {
+        // Check if this tab is the main active tab before making a request
+        if (!getAxiosMainTabStatus()) {
+            console.warn('Axios Interceptor: Request blocked. This is not the main active tab.');
+            // Trigger the callback registered by useSingleTabEnforcer
+            if (setAxiosMultipleTabsDetectedCallback) {
+                setAxiosMultipleTabsDetectedCallback();
+            }
+            return Promise.reject(new axios.Cancel('Request cancelled: Not the main active tab.'));
+        }
+
         try {
             const user = JSON.parse(localStorage.getItem('user')); // Get user data from localStorage
             const token = user ? user.token : null; // Extract the token
@@ -39,6 +50,12 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
     (response) => response,
     (error) => {
+        // If the error is due to a cancelled request (our own cancellation)
+        if (axios.isCancel(error)) {
+            console.log('Axios Interceptor: Request was cancelled:', error.message);
+            return Promise.reject(error); // Re-throw the cancellation
+        }
+
         // If a 401 or 403 response is received, it might mean the token is expired or invalid
         if (error.response && (error.response.status === 401 || error.response.status === 403)) {
             console.error('Axios Interceptor: Authentication error (401/403). Token expired or invalid. Logging out...');
