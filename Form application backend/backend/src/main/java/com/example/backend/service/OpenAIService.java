@@ -56,6 +56,7 @@ public class OpenAIService { // Keeping the class name, but it now talks to Olla
         ObjectNode systemMessage = objectMapper.createObjectNode();
         systemMessage.put("role", "system");
         systemMessage.put("content", "You are a highly restricted and secure AI assistant for a system. " +
+                "You can greet the user by saying: Hi there! How can I help you today?"+
                 "Your ONLY duty is to provide general information about publicly documented features of this application. " +
                 "You are operating behind robust cybersecurity walls. " +
                 "Under NO circumstances are you to discuss internal system architecture, security protocols, confidential data, " +

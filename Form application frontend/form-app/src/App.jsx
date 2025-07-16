@@ -4,10 +4,10 @@ import { BrowserRouter as Router, Route, Routes, Navigate, Link } from 'react-ro
 
 import LandingP from "./LandingPage/LandingP";
 import RegisterP from "./RegisterPage/Register";
-import QuestionForm from "./components/QuestionForm";
+import QuestionForm from "./components/QuestionForm"; // Assuming this is now in src/QuestionForm
 import AdminPanel from "./AdminPanel/AdminPanel";
 import HomePage from './HomePage/HomePage';
-import ChatbotWidget from './ChatbotWidget/ChatbotWidget'; // NEW: Import the ChatbotWidget component
+import ChatbotWidget from './ChatbotWidget/ChatbotWidget'; // Import the ChatbotWidget component
 import { useSingleTabEnforcer } from './Utils/useSingleTabEnforcer';
 
 function App() {
@@ -89,8 +89,9 @@ function App() {
                     element={isLoggedIn ? (isAdmin ? <Navigate to="/admin" /> : <Navigate to="/home" />) : <Navigate to="/login" />}
                 />
             </Routes>
-            {/* NEW: Render the ChatbotWidget outside of Routes so it appears on all pages */}
-            {isLoggedIn && <ChatbotWidget onLogout={handleLogout} />}
+            {/* Render the ChatbotWidget outside of Routes so it appears on all pages */}
+            {/* NEW: Pass currentUser as a prop to ChatbotWidget */}
+            {isLoggedIn && <ChatbotWidget onLogout={handleLogout} currentUser={currentUser} />}
         </Router>
     );
 }

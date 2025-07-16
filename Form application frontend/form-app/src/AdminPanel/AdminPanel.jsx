@@ -28,8 +28,9 @@ function AdminPanel({ onLogout }) {
     // States for new question input fields in the modal
     const [newQuestionText, setNewQuestionText] = useState('');
     const [newQuestionType, setNewQuestionType] = useState('text');
-    const [newQuestionOptions, setNewQuestionOptions] = ''; // Comma-separated string
-    const [newQuestionMaxSelections, setNewQuestionMaxSelections] = ''; // For checkbox type
+    // FIX: Corrected useState initialization
+    const [newQuestionOptions, setNewQuestionOptions] = useState(''); // Comma-separated string
+    const [newQuestionMaxSelections, setNewQuestionMaxSelections] = useState(''); // For checkbox type
 
     // NEW STATES FOR USER MODAL INPUTS
     const [userModalUsername, setUserModalUsername] = useState('');
@@ -39,6 +40,9 @@ function AdminPanel({ onLogout }) {
 
     // State to hold the user object being edited (null for add new)
     const [userBeingEdited, setUserBeingEdited] = useState(null);
+
+    // NEW: Error state specifically for the question modal
+    const [questionModalError, setQuestionModalError] = useState(null);
 
 
     useEffect(() => {
@@ -58,16 +62,6 @@ function AdminPanel({ onLogout }) {
         try {
             setLoading(true); // Set loading state to true
             setError(null);    // Clear any previous errors
-
-            // --- ADDED LOGS FOR DEBUGGING TOKEN ---
-            const userInLocalStorage = JSON.parse(localStorage.getItem('user'));
-            console.log('AdminPanel (fetchAllAdminData): User object from localStorage:', userInLocalStorage);
-            if (userInLocalStorage && userInLocalStorage.token) {
-                console.log('AdminPanel (fetchAllAdminData): Token found in localStorage:', userInLocalStorage.token.substring(0, 20) + '...'); // Log first 20 chars
-            } else {
-                console.log('AdminPanel (fetchAllAdminData): No token found in localStorage.');
-            }
-            // --- END ADDED LOGS ---
 
             // Fetch users data from the backend
             const usersRes = await axiosInstance.get('/admin/users');
@@ -187,7 +181,6 @@ function AdminPanel({ onLogout }) {
             if (userModalPassword.trim() !== '') {
                 payload.password = userModalPassword.trim(); // Ensure trimmed password is sent
             }
-            console.log("Submitting user update payload:", payload); // Log payload
             try {
                 await axiosInstance.put(`/admin/users/${userBeingEdited.id}`, payload);
             } catch (err) {
@@ -204,7 +197,6 @@ function AdminPanel({ onLogout }) {
                 return;
             }
             payload.password = userModalPassword.trim(); // Ensure trimmed password is sent for new user
-            console.log("Submitting new user payload:", payload); // Log payload
             try {
                 await axiosInstance.post('/admin/users', payload);
             } catch (err) {
@@ -287,7 +279,17 @@ function AdminPanel({ onLogout }) {
     // Handler for adding a new question to the selected form
     const handleAddQuestion = () => {
         if (!selectedFormForQuestions) {
-            alert('Please select a form first to add a question.');
+            // Replaced alert with custom message box as per instructions
+            const messageBox = document.createElement('div');
+            messageBox.className = 'custom-message-box';
+            messageBox.innerHTML = `
+                <p>Please select a form first to add a question.</p>
+                <button class="custom-message-box-button">OK</button>
+            `;
+            document.body.appendChild(messageBox);
+            messageBox.querySelector('.custom-message-box-button').onclick = () => {
+                document.body.removeChild(messageBox);
+            };
             return;
         }
         setCurrentEditQuestion({ questionText: '', type: 'text', options: [], maxSelections: null }); // Initialize empty question
@@ -295,6 +297,7 @@ function AdminPanel({ onLogout }) {
         setNewQuestionType('text');
         setNewQuestionOptions('');
         setNewQuestionMaxSelections('');
+        setQuestionModalError(null); // Clear previous errors
         setShowQuestionModal(true);
     };
 
@@ -305,35 +308,77 @@ function AdminPanel({ onLogout }) {
         setNewQuestionType(question.type);
         setNewQuestionOptions(question.options ? question.options.join(', ') : '');
         setNewQuestionMaxSelections(question.maxSelections || '');
+        setQuestionModalError(null); // Clear previous errors
         setShowQuestionModal(true);
     };
 
     // Handler for deleting a question
     const handleDeleteQuestion = async (questionId) => {
         if (!selectedFormForQuestions) return; // Should not happen if button is only shown when form is selected
-        if (!window.confirm('Are you sure you want to delete this question?')) return;
-        try {
-            await axiosInstance.delete(`/admin/forms/${selectedFormForQuestions.id}/questions/${questionId}`);
-            fetchFormQuestions(selectedFormForQuestions.id); // Refresh questions for the current form
-        } catch (err) {
-            console.error("Error deleting question:", err);
-            setError("Failed to delete question.");
-        }
+        // Replaced window.confirm with custom message box
+        const confirmBox = document.createElement('div');
+        confirmBox.className = 'custom-message-box';
+        confirmBox.innerHTML = `
+            <p>Are you sure you want to delete this question?</p>
+            <button class="custom-message-box-button confirm-yes">Yes</button>
+            <button class="custom-message-box-button confirm-no">No</button>
+        `;
+        document.body.appendChild(confirmBox);
+
+        confirmBox.querySelector('.confirm-yes').onclick = async () => {
+            document.body.removeChild(confirmBox);
+            try {
+                await axiosInstance.delete(`/admin/forms/${selectedFormForQuestions.id}/questions/${questionId}`);
+                fetchFormQuestions(selectedFormForQuestions.id); // Refresh questions for the current form
+            } catch (err) {
+                console.error("Error deleting question:", err);
+                setError("Failed to delete question.");
+            }
+        };
+        confirmBox.querySelector('.confirm-no').onclick = () => {
+            document.body.removeChild(confirmBox);
+        };
     };
 
     // Handler for submitting the question add/edit form in the modal
     const handleQuestionModalSubmit = async (e) => {
         e.preventDefault();
+        setQuestionModalError(null); // Clear previous errors
+
         if (!selectedFormForQuestions) {
-            setError("No form selected to add/edit questions.");
+            setQuestionModalError("No form selected to add/edit questions.");
             return;
         }
+
+        // Frontend validation for question text
+        if (!newQuestionText.trim()) {
+            setQuestionModalError("Question text cannot be empty.");
+            return;
+        }
+
+        // Frontend validation for options if type is radio or checkbox
+        if ((newQuestionType === 'radio' || newQuestionType === 'checkbox') && !newQuestionOptions.trim()) {
+            setQuestionModalError("Options are required for radio and checkbox questions.");
+            return;
+        }
+
+        // Frontend validation for maxSelections if type is checkbox
+        const parsedMaxSelections = newQuestionMaxSelections !== '' ? parseInt(newQuestionMaxSelections, 10) : null;
+        if (newQuestionType === 'checkbox') {
+            if (parsedMaxSelections === null || isNaN(parsedMaxSelections) || parsedMaxSelections <= 0) {
+                setQuestionModalError("Max selections must be a positive number for checkbox questions.");
+                return;
+            }
+        }
+
 
         const questionData = {
             questionText: newQuestionText,
             type: newQuestionType,
-            options: newQuestionOptions.split(',').map(s => s.trim()).filter(s => s.length > 0),
-            maxSelections: newQuestionType === 'checkbox' && newQuestionMaxSelections ? parseInt(newQuestionMaxSelections) : null,
+            options: (newQuestionType === 'radio' || newQuestionType === 'checkbox') && newQuestionOptions.trim() ?
+                     newQuestionOptions.split(',').map(s => s.trim()).filter(s => s.length > 0) :
+                     [],
+            maxSelections: newQuestionType === 'checkbox' ? parsedMaxSelections : null,
             form: { id: selectedFormForQuestions.id } // Link question to the current form
         };
 
@@ -349,7 +394,8 @@ function AdminPanel({ onLogout }) {
             fetchFormQuestions(selectedFormForQuestions.id); // Refresh questions list
         } catch (err) {
             console.error("Error saving question:", err);
-            setError("Failed to save question.");
+            const errorMessage = (err.response && err.response.data && err.response.data.message) || err.message || err.toString();
+            setQuestionModalError(`Failed to save question: ${errorMessage}`); // Set modal-specific error
         }
     };
 
@@ -616,6 +662,11 @@ function AdminPanel({ onLogout }) {
                     <div className="modal-content question-modal-content">
                         <h3 className="modal-title">{currentEditQuestion && currentEditQuestion.id ? 'Edit Question' : 'Add Question'}</h3>
                         <form onSubmit={handleQuestionModalSubmit} className="modal-form question-form">
+                            {questionModalError && ( // NEW: Display question modal error
+                                <div className="error-message modal-error-message">
+                                    ❌ {questionModalError}
+                                </div>
+                            )}
                             <div className="modal-form-group">
                                 <label htmlFor="questionText">Question Text:</label>
                                 <input
