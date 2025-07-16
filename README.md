@@ -20,15 +20,15 @@
 
 ## Table of Contents
 
-  * [Overview](https://www.google.com/search?q=%23overview)
-  * [Features](https://www.google.com/search?q=%23features)
-  * [Tech Stack](https://www.google.com/search?q=%23tech-stack)
-  * [Getting Started](https://www.google.com/search?q=%23getting-started)
-      * [Prerequisites](https://www.google.com/search?q=%23prerequisites)
-      * [Installation & Configuration](https://www.google.com/search?q=%23installation--configuration)
-  * [Running the Application](https://www.google.com/search?q=%23running-the-application)
-  * [Contact](https://www.google.com/search?q=%23contact)
-  * [License](https://www.google.com/search?q=%23license)
+- [Overview](#overview)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation & Configuration](#installation--configuration)
+- [Running the Application](#running-the-application)
+- [Contact](#contact)
+- [License](#license)
 
 </hr>
 
