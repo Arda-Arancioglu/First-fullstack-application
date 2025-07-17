@@ -101,16 +101,7 @@ public class WebSecurityConfig {
 
     // --- Security Filter Chain Definitions ---
 
-    /**
-     * Defines a WebSecurityCustomizer to completely ignore requests to /h2-console/**
-     * from the Spring Security filter chain. This is the most reliable way to ensure
-     * the H2 console is accessible without any security interference.
-     * @return WebSecurityCustomizer
-     */
-    @Bean
-    public WebSecurityCustomizer webSecurityCustomizer() {
-        return (web) -> web.ignoring().requestMatchers(new AntPathRequestMatcher("/h2-console/**"));
-    }
+
 
     /**
      * Defines the main SecurityFilterChain for the rest of the application's endpoints.
