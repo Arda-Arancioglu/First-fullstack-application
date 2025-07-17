@@ -4,13 +4,17 @@ import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../services/axios-instance'; // Ensure you use your configured axios instance
 import './AdminPanelStyle.css'; // Import the CSS file for styling
 
-function AdminPanel({ onLogout }) {
+function AdminPanel({ onLogout, isMainTab }) {
     const navigate = useNavigate();
     const [username, setUsername] = useState('');
-    const [users, setUsers] = useState([]);
-    const [forms, setForms] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null); // General panel error
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false); // State for sidebar visibility
+    const [activeSection, setActiveSection] = useState('dashboard'); // Default active section is 'dashboard'
+
+    // --- Data States ---
+    const [users, setUsers] = useState([]);
+    const [forms, setForms] = useState([]);
 
     // Modals state
     const [showUserModal, setShowUserModal] = useState(false);
@@ -28,11 +32,10 @@ function AdminPanel({ onLogout }) {
     // States for new question input fields in the modal
     const [newQuestionText, setNewQuestionText] = useState('');
     const [newQuestionType, setNewQuestionType] = useState('text');
-    // FIX: Corrected useState initialization
     const [newQuestionOptions, setNewQuestionOptions] = useState(''); // Comma-separated string
     const [newQuestionMaxSelections, setNewQuestionMaxSelections] = useState(''); // For checkbox type
 
-    // NEW STATES FOR USER MODAL INPUTS
+    // States for user modal inputs
     const [userModalUsername, setUserModalUsername] = useState('');
     const [userModalPassword, setUserModalPassword] = useState('');
     const [userModalRoles, setUserModalRoles] = useState({ ROLE_USER: false, ROLE_ADMIN: false });
@@ -40,21 +43,31 @@ function AdminPanel({ onLogout }) {
 
     // State to hold the user object being edited (null for add new)
     const [userBeingEdited, setUserBeingEdited] = useState(null);
+    // --- End Data States ---
 
-    // NEW: Error state specifically for the question modal
-    const [questionModalError, setQuestionModalError] = useState(null);
+    // --- Pagination States for Users ---
+    const [currentUserPage, setCurrentUserPage] = useState(1);
+    const [usersPerPage, setUsersPerPage] = useState(5);
+
+    // --- Pagination States for Forms ---
+    const [currentFormPage, setCurrentFormPage] = useState(1);
+    const [formsPerPage, setFormsPerPage] = useState(5);
+
+    // --- Pagination States for Questions ---
+    const [currentQuestionsPage, setCurrentQuestionsPage] = useState(1);
+    const [questionsPerPage, setQuestionsPerPage] = useState(5);
 
 
+    // Effect for initial authentication check and setting username
     useEffect(() => {
         const user = JSON.parse(localStorage.getItem('user'));
-        // Check if user is logged in and has ADMIN role
-        if (user && user.username && user.roles && user.roles.includes('ROLE_ADMIN')) {
-            setUsername(user.username);
-            fetchAllAdminData();
-        } else {
-            // If not logged in or not admin, redirect to login page
+
+        if (!user || !user.username || !user.roles || !user.roles.includes('ROLE_ADMIN')) {
             onLogout();
+            return;
         }
+        setUsername(user.username);
+        setLoading(false); // Set loading to false after user check
     }, [onLogout]);
 
     // Function to fetch all admin-related data (users and forms)
@@ -66,15 +79,16 @@ function AdminPanel({ onLogout }) {
             // Fetch users data from the backend
             const usersRes = await axiosInstance.get('/admin/users');
             setUsers(usersRes.data);
+            setCurrentUserPage(1); // Reset user pagination on data fetch
 
             // Fetch forms data from the backend
             const formsRes = await axiosInstance.get('/admin/forms');
             setForms(formsRes.data);
+            setCurrentFormPage(1); // Reset form pagination on data fetch
 
             setLoading(false); // Set loading state to false after successful fetch
         } catch (err) {
-            console.error("Error fetching admin data:", err);
-            // Construct a user-friendly error message
+            console.error("AdminPanel: Error fetching admin data:", err);
             const errorMessage =
                 (err.response && err.response.data && err.response.data.message) ||
                 err.message ||
@@ -82,7 +96,6 @@ function AdminPanel({ onLogout }) {
             setError(`Failed to load admin data: ${errorMessage}`); // Set error message
             setLoading(false); // Set loading state to false on error
 
-            // If the error is due to unauthorized access (401 or 403), log out the user
             if (err.response && (err.response.status === 401 || err.response.status === 403)) {
                 onLogout();
             }
@@ -91,6 +104,10 @@ function AdminPanel({ onLogout }) {
 
     // Function to fetch questions for a specific form
     const fetchFormQuestions = async (formId) => {
+        if (!isMainTab) {
+            setError("Cannot manage questions. This is not the main active tab.");
+            return;
+        }
         try {
             setLoading(true);
             setError(null);
@@ -98,7 +115,9 @@ function AdminPanel({ onLogout }) {
             setFormQuestions(questionsRes.data);
             const form = forms.find(f => f.id === formId);
             setSelectedFormForQuestions(form); // Set the form being managed
+            setCurrentQuestionsPage(1); // Reset to first page when new form is selected
             setLoading(false);
+            setActiveSection('questionManagement'); // Switch to question management view
         } catch (err) {
             console.error("Error fetching form questions:", err);
             const errorMessage =
@@ -113,438 +132,574 @@ function AdminPanel({ onLogout }) {
         }
     };
 
-    // --- User Management Handlers ---
+    // Effect for fetching data based on isMainTab status
+    useEffect(() => {
+        if (isMainTab) {
+            fetchAllAdminData(); // If this tab is the main tab, attempt to fetch data
+        } else {
+            setError("Admin Panel is inactive. Please use the main active tab.");
+            setLoading(false);
+        }
+    }, [isMainTab]); // Depends on isMainTab to re-trigger data fetch or error state
 
-    // Handler for adding a new user
+    const toggleSidebar = () => {
+        setIsSidebarOpen(!isSidebarOpen);
+    };
+
+    // --- User Management Handlers ---
     const handleAddUser = () => {
-        setUserBeingEdited(null); // Indicate add mode
+        if (!isMainTab) { setUserModalError("Cannot add user. This is not the main active tab."); return; }
+        setUserBeingEdited(null);
         setUserModalUsername('');
         setUserModalPassword('');
-        setUserModalRoles({ ROLE_USER: true, ROLE_ADMIN: false }); // Default to ROLE_USER
-        setUserModalError(null); // Clear any previous errors
+        setUserModalRoles({ ROLE_USER: true, ROLE_ADMIN: false });
+        setUserModalError(null);
         setShowUserModal(true);
     };
 
-    // Handler for editing an existing user
     const handleEditUser = (user) => {
-        setUserBeingEdited(user); // Set the user being edited
+        if (!isMainTab) { setUserModalError("Cannot edit user. This is not the main active tab."); return; }
+        setUserBeingEdited(user);
         setUserModalUsername(user.username);
-        setUserModalPassword(''); // Password is never pre-filled for security
+        setUserModalPassword('');
         setUserModalRoles({
             ROLE_USER: user.roles?.some(role => role.name === 'ROLE_USER') || false,
             ROLE_ADMIN: user.roles?.some(role => role.name === 'ROLE_ADMIN') || false
         });
-        setUserModalError(null); // Clear any previous errors
+        setUserModalError(null);
         setShowUserModal(true);
     };
 
-    // Handler for deleting a user
     const handleDeleteUser = async (userId) => {
-        // Confirm deletion with the user
-        if (!window.confirm('Are you sure you want to delete this user?')) {
-            return; // If user cancels, do nothing
-        }
+        if (!isMainTab) { setError("Cannot delete user. This is not the main active tab."); return; }
+        if (!window.confirm('Are you sure you want to delete this user?')) { return; }
         try {
-            // Send DELETE request to the backend
             await axiosInstance.delete(`/admin/users/${userId}`);
-            fetchAllAdminData(); // Refresh the user list after deletion
+            fetchAllAdminData();
         } catch (err) {
             console.error("Error deleting user:", err);
-            setError("Failed to delete user."); // Set error message
+            setError("Failed to delete user.");
         }
     };
 
-    // Handler for submitting the user add/edit form in the modal
     const handleUserModalSubmit = async (e) => {
-        e.preventDefault(); // Prevent default form submission behavior
-        setUserModalError(null); // Clear error on new submission attempt
+        e.preventDefault();
+        setUserModalError(null);
 
-        // Construct roles array from checkbox states
+        if (!isMainTab) { setUserModalError("Cannot save user. This is not the main active tab."); return; }
+
         const selectedRoles = [];
         if (userModalRoles.ROLE_USER) selectedRoles.push({ name: 'ROLE_USER' });
         if (userModalRoles.ROLE_ADMIN) selectedRoles.push({ name: 'ROLE_ADMIN' });
 
-        // Frontend validation
-        if (!userModalUsername.trim()) {
-            setUserModalError("Username cannot be empty!");
-            return;
-        }
+        if (!userModalUsername.trim()) { setUserModalError("Username cannot be empty!"); return; }
 
-        const payload = {
-            username: userModalUsername,
-            roles: selectedRoles
-        };
+        const payload = { username: userModalUsername, roles: selectedRoles };
 
         if (userBeingEdited) {
-            // Edit operation (PUT)
-            // Only include password if it was explicitly changed
-            if (userModalPassword.trim() !== '') {
-                payload.password = userModalPassword.trim(); // Ensure trimmed password is sent
-            }
-            try {
-                await axiosInstance.put(`/admin/users/${userBeingEdited.id}`, payload);
-            } catch (err) {
+            if (userModalPassword.trim() !== '') { payload.password = userModalPassword.trim(); }
+            try { await axiosInstance.put(`/admin/users/${userBeingEdited.id}`, payload); }
+            catch (err) {
                 console.error("Error updating user:", err);
                 const errorMessage = (err.response && err.response.data) || err.message || err.toString();
-                setUserModalError(`Failed to update user: ${errorMessage}`);
-                return;
+                setUserModalError(`Failed to update user: ${errorMessage}`); return;
             }
         } else {
-            // Add operation (POST)
-            // Password is required for new users
-            if (userModalPassword.trim() === '') {
-                setUserModalError("Password is required for new users.");
-                return;
-            }
-            payload.password = userModalPassword.trim(); // Ensure trimmed password is sent for new user
-            try {
-                await axiosInstance.post('/admin/users', payload);
-            } catch (err) {
+            if (userModalPassword.trim() === '') { setUserModalError("Password is required for new users."); return; }
+            payload.password = userModalPassword.trim();
+            try { await axiosInstance.post('/admin/users', payload); }
+            catch (err) {
                 console.error("Error adding user:", err);
                 const errorMessage = (err.response && err.response.data) || err.message || err.toString();
-                setUserModalError(`Failed to add user: ${errorMessage}`);
-                return;
+                setUserModalError(`Failed to add user: ${errorMessage}`); return;
             }
         }
-
-        setShowUserModal(false); // Close the modal on success
-        fetchAllAdminData();     // Refresh the user list
+        setShowUserModal(false);
+        fetchAllAdminData();
     };
 
-    // Handler for changing user roles via checkboxes
     const handleUserModalRoleChange = (roleName, isChecked) => {
-        setUserModalRoles(prevRoles => ({
-            ...prevRoles,
-            [roleName]: isChecked
-        }));
+        setUserModalRoles(prevRoles => ({ ...prevRoles, [roleName]: isChecked }));
     };
-
 
     // --- Form Management Handlers ---
-
-    // Handler for adding a new form
     const handleAddForm = () => {
-        setCurrentEditForm({ title: '', description: '' }); // Initialize an empty form object
-        setShowFormModal(true); // Open the form modal
+        if (!isMainTab) { setError("Cannot add form. This is not the main active tab."); return; }
+        setCurrentEditForm({ title: '', description: '' });
+        setShowFormModal(true);
     };
 
-    // Handler for editing an existing form
     const handleEditForm = (form) => {
-        setCurrentEditForm(form); // Set the form to be edited
-        setShowFormModal(true);   // Open the form modal
+        if (!isMainTab) { setError("Cannot edit form. This is not the main active tab."); return; }
+        setCurrentEditForm(form);
+        setShowFormModal(true);
     };
 
-    // Handler for deleting a form
     const handleDeleteForm = async (formId) => {
-        // Confirm deletion with the user
-        if (!window.confirm('Are you sure you want to delete this form and all its associated questions?')) {
-            return; // If user cancels, do nothing
-        }
+        if (!isMainTab) { setError("Cannot delete form. This is not the main active tab."); return; }
+        if (!window.confirm('Are you sure you want to delete this form and all its associated questions?')) { return; }
         try {
-            // Send DELETE request to the backend
             await axiosInstance.delete(`/admin/forms/${formId}`);
-            fetchAllAdminData(); // Refresh the form list after deletion
-            // If the deleted form was the one selected for questions, clear it
+            fetchAllAdminData();
             if (selectedFormForQuestions && selectedFormForQuestions.id === formId) {
                 setSelectedFormForQuestions(null);
                 setFormQuestions([]);
             }
         } catch (err) {
             console.error("Error deleting form:", err);
-            setError("Failed to delete form."); // Set error message
+            setError("Failed to delete form.");
         }
     };
 
-    // Handler for submitting the form add/edit form in the modal
     const handleFormModalSubmit = async (e) => {
-        e.preventDefault(); // Prevent default form submission behavior
+        e.preventDefault();
+        if (!isMainTab) { setError("Cannot save form. This is not the main active tab."); return; }
         try {
             if (currentEditForm.id) {
-                // If form ID exists, it's an edit operation (PUT request)
                 await axiosInstance.put(`/admin/forms/${currentEditForm.id}`, currentEditForm);
             } else {
-                // If no form ID, it's an add operation (POST request)
                 await axiosInstance.post('/admin/forms', currentEditForm);
             }
-            setShowFormModal(false); // Close the modal
-            fetchAllAdminData();     // Refresh the form list
+            setShowFormModal(false);
+            fetchAllAdminData();
         } catch (err) {
             console.error("Error saving form:", err);
-            setError("Failed to save form."); // Set error message
+            setError("Failed to save form.");
         }
     };
 
     // --- Question Management Handlers ---
-
-    // Handler for adding a new question to the selected form
     const handleAddQuestion = () => {
-        if (!selectedFormForQuestions) {
-            // Replaced alert with custom message box as per instructions
-            const messageBox = document.createElement('div');
-            messageBox.className = 'custom-message-box';
-            messageBox.innerHTML = `
-                <p>Please select a form first to add a question.</p>
-                <button class="custom-message-box-button">OK</button>
-            `;
-            document.body.appendChild(messageBox);
-            messageBox.querySelector('.custom-message-box-button').onclick = () => {
-                document.body.removeChild(messageBox);
-            };
-            return;
-        }
-        setCurrentEditQuestion({ questionText: '', type: 'text', options: [], maxSelections: null }); // Initialize empty question
+        if (!isMainTab) { setError("Cannot add question. This is not the main active tab."); return; }
+        if (!selectedFormForQuestions) { alert('Please select a form first to add a question.'); return; }
+        setCurrentEditQuestion({ questionText: '', type: 'text', options: [], maxSelections: null });
         setNewQuestionText('');
         setNewQuestionType('text');
         setNewQuestionOptions('');
         setNewQuestionMaxSelections('');
-        setQuestionModalError(null); // Clear previous errors
         setShowQuestionModal(true);
     };
 
-    // Handler for editing an existing question
     const handleEditQuestion = (question) => {
+        if (!isMainTab) { setError("Cannot edit question. This is not the main active tab."); return; }
         setCurrentEditQuestion(question);
         setNewQuestionText(question.questionText);
         setNewQuestionType(question.type);
         setNewQuestionOptions(question.options ? question.options.join(', ') : '');
         setNewQuestionMaxSelections(question.maxSelections || '');
-        setQuestionModalError(null); // Clear previous errors
         setShowQuestionModal(true);
     };
 
-    // Handler for deleting a question
     const handleDeleteQuestion = async (questionId) => {
-        if (!selectedFormForQuestions) return; // Should not happen if button is only shown when form is selected
-        // Replaced window.confirm with custom message box
-        const confirmBox = document.createElement('div');
-        confirmBox.className = 'custom-message-box';
-        confirmBox.innerHTML = `
-            <p>Are you sure you want to delete this question?</p>
-            <button class="custom-message-box-button confirm-yes">Yes</button>
-            <button class="custom-message-box-button confirm-no">No</button>
-        `;
-        document.body.appendChild(confirmBox);
-
-        confirmBox.querySelector('.confirm-yes').onclick = async () => {
-            document.body.removeChild(confirmBox);
-            try {
-                await axiosInstance.delete(`/admin/forms/${selectedFormForQuestions.id}/questions/${questionId}`);
-                fetchFormQuestions(selectedFormForQuestions.id); // Refresh questions for the current form
-            } catch (err) {
-                console.error("Error deleting question:", err);
-                setError("Failed to delete question.");
-            }
-        };
-        confirmBox.querySelector('.confirm-no').onclick = () => {
-            document.body.removeChild(confirmBox);
-        };
+        if (!isMainTab) { setError("Cannot delete question. This is not the main active tab."); return; }
+        if (!selectedFormForQuestions) return;
+        if (!window.confirm('Are you sure you want to delete this question?')) return;
+        try {
+            await axiosInstance.delete(`/admin/forms/${selectedFormForQuestions.id}/questions/${questionId}`);
+            fetchFormQuestions(selectedFormForQuestions.id);
+        } catch (err) {
+            console.error("Error deleting question:", err);
+            setError("Failed to delete question.");
+        }
     };
 
-    // Handler for submitting the question add/edit form in the modal
     const handleQuestionModalSubmit = async (e) => {
         e.preventDefault();
-        setQuestionModalError(null); // Clear previous errors
-
-        if (!selectedFormForQuestions) {
-            setQuestionModalError("No form selected to add/edit questions.");
-            return;
-        }
-
-        // Frontend validation for question text
-        if (!newQuestionText.trim()) {
-            setQuestionModalError("Question text cannot be empty.");
-            return;
-        }
-
-        // Frontend validation for options if type is radio or checkbox
-        if ((newQuestionType === 'radio' || newQuestionType === 'checkbox') && !newQuestionOptions.trim()) {
-            setQuestionModalError("Options are required for radio and checkbox questions.");
-            return;
-        }
-
-        // Frontend validation for maxSelections if type is checkbox
-        const parsedMaxSelections = newQuestionMaxSelections !== '' ? parseInt(newQuestionMaxSelections, 10) : null;
-        if (newQuestionType === 'checkbox') {
-            if (parsedMaxSelections === null || isNaN(parsedMaxSelections) || parsedMaxSelections <= 0) {
-                setQuestionModalError("Max selections must be a positive number for checkbox questions.");
-                return;
-            }
-        }
-
+        if (!isMainTab) { setError("Cannot save question. This is not the main active tab."); return; }
+        if (!selectedFormForQuestions) { setError("No form selected to add/edit questions."); return; }
 
         const questionData = {
             questionText: newQuestionText,
             type: newQuestionType,
-            options: (newQuestionType === 'radio' || newQuestionType === 'checkbox') && newQuestionOptions.trim() ?
-                     newQuestionOptions.split(',').map(s => s.trim()).filter(s => s.length > 0) :
-                     [],
-            maxSelections: newQuestionType === 'checkbox' ? parsedMaxSelections : null,
-            form: { id: selectedFormForQuestions.id } // Link question to the current form
+            options: newQuestionOptions.split(',').map(s => s.trim()).filter(s => s.length > 0),
+            maxSelections: newQuestionType === 'checkbox' && newQuestionMaxSelections ? parseInt(newQuestionMaxSelections) : null,
+            form: { id: selectedFormForQuestions.id }
         };
 
         try {
             if (currentEditQuestion && currentEditQuestion.id) {
-                // Update existing question
                 await axiosInstance.put(`/admin/forms/${selectedFormForQuestions.id}/questions/${currentEditQuestion.id}`, questionData);
             } else {
-                // Add new question
                 await axiosInstance.post(`/admin/forms/${selectedFormForQuestions.id}/questions`, questionData);
             }
-            setShowQuestionModal(false); // Close modal
-            fetchFormQuestions(selectedFormForQuestions.id); // Refresh questions list
+            setShowQuestionModal(false);
+            fetchFormQuestions(selectedFormForQuestions.id);
         } catch (err) {
             console.error("Error saving question:", err);
-            const errorMessage = (err.response && err.response.data && err.response.data.message) || err.message || err.toString();
-            setQuestionModalError(`Failed to save question: ${errorMessage}`); // Set modal-specific error
+            setError("Failed to save question.");
         }
     };
 
+    // --- Pagination Logic for Users ---
+    const indexOfLastUser = currentUserPage * usersPerPage;
+    const indexOfFirstUser = indexOfLastUser - usersPerPage;
+    const currentUsers = users.slice(indexOfFirstUser, indexOfLastUser);
+    const totalUserPages = Math.ceil(users.length / usersPerPage);
+    const paginateUsers = (pageNumber) => setCurrentUserPage(pageNumber);
+    const handleUsersPerPageChange = (e) => {
+        setUsersPerPage(parseInt(e.target.value));
+        setCurrentUserPage(1); // Reset to first page
+    };
+
+    // --- Pagination Logic for Forms ---
+    const indexOfLastForm = currentFormPage * formsPerPage;
+    const indexOfFirstForm = indexOfLastForm - formsPerPage;
+    const currentForms = forms.slice(indexOfFirstForm, indexOfLastForm);
+    const totalFormPages = Math.ceil(forms.length / formsPerPage);
+    const paginateForms = (pageNumber) => setCurrentFormPage(pageNumber);
+    const handleFormsPerPageChange = (e) => {
+        setFormsPerPage(parseInt(e.target.value));
+        setCurrentFormPage(1); // Reset to first page
+    };
+
+    // --- Pagination Logic for Questions ---
+    const indexOfLastQuestion = currentQuestionsPage * questionsPerPage;
+    const indexOfFirstQuestion = indexOfLastQuestion - questionsPerPage;
+    const currentQuestions = formQuestions.slice(indexOfFirstQuestion, indexOfLastQuestion);
+    const totalQuestionPages = Math.ceil(formQuestions.length / questionsPerPage);
+    const paginateQuestions = (pageNumber) => setCurrentQuestionsPage(pageNumber);
+    const handleQuestionsPerPageChange = (e) => {
+        setQuestionsPerPage(parseInt(e.target.value));
+        setCurrentQuestionsPage(1); // Reset to first page when items per page changes
+    };
 
     // Render loading state
     if (loading) {
         return <div className="admin-loading-message">Loading admin panel...</div>;
     }
 
-    // Render error state
-    if (error) {
-        return <div className="admin-error-message">❌ {error}</div>;
-    }
-
     return (
         <div className="admin-panel-container">
-            {/* Navigation Bar */}
-            <nav className="admin-panel-nav">
-                <h2 className="admin-panel-title">Admin Panel - Welcome, {username}!</h2>
-                <button onClick={onLogout} className="logout-button">
-                    Logout
+            {/* Top Navigation Bar */}
+            <nav className="admin-top-nav">
+                {/* Hamburger Icon on the top-left */}
+                <button className="hamburger-menu-button" onClick={toggleSidebar}>
+                    {/* SVG for 3 stacked lines icon */}
+                    <svg className="hamburger-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M4 6H20M4 12H20M4 18H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
                 </button>
+                {/* Optional: You can add a main title for the header here if desired */}
+                <h1 className="admin-panel-header-title">Admin Dashboard</h1>
             </nav>
 
-            <div className="admin-content-wrapper">
-                {/* User Management Section */}
-                <div className="admin-section-container user-management-section">
-                    <h3 className="section-title">User Management</h3>
-                    <button
-                        onClick={handleAddUser}
-                        className="add-button add-user-button"
-                    >
-                        Add New User
-                    </button>
-                    <div className="table-responsive">
-                        <table className="admin-table user-table">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Username</th>
-                                    <th>Roles</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {users.map(user => (
-                                    <tr key={user.id}>
-                                        <td>{user.id}</td>
-                                        <td>{user.username}</td>
-                                        <td>{user.roles.map(role => role.name).join(', ')}</td>
-                                        <td className="table-actions">
-                                            <button onClick={() => handleEditUser(user)} className="action-button edit-button">
-                                                Edit
-                                            </button>
-                                            <button onClick={() => handleDeleteUser(user.id)} className="action-button delete-button">
-                                                Delete
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+            {/* Main Layout: Sidebar and Content Area */}
+            <div className="admin-main-layout">
+                {/* Sidebar Navigation */}
+                <aside className={`admin-sidebar ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+                    <ul className="sidebar-nav-list">
+                        <li className="sidebar-nav-item">
+                            <button onClick={() => { setActiveSection('dashboard'); setIsSidebarOpen(false); }} className={`sidebar-nav-button ${activeSection === 'dashboard' ? 'active' : ''}`}>Home</button>
+                        </li>
+                        <li className="sidebar-nav-item">
+                            <button onClick={() => { setActiveSection('userManagement'); setIsSidebarOpen(false); }} className={`sidebar-nav-button ${activeSection === 'userManagement' ? 'active' : ''}`}>User Management</button>
+                        </li>
+                        <li className="sidebar-nav-item">
+                            <button onClick={() => { setActiveSection('formManagement'); setSelectedFormForQuestions(null); setFormQuestions([]); setIsSidebarOpen(false); }} className={`sidebar-nav-button ${activeSection === 'formManagement' ? 'active' : ''}`}>Form Management</button>
+                        </li>
+                        {/* Only show Question Management in sidebar if a form is selected */}
+                        {selectedFormForQuestions && (
+                            <li className="sidebar-nav-item">
+                                <button onClick={() => { setActiveSection('questionManagement'); setIsSidebarOpen(false); }} className={`sidebar-nav-button ${activeSection === 'questionManagement' ? 'active' : ''}`}>
+                                    Question Management ({selectedFormForQuestions.title})
+                                </button>
+                            </li>
+                        )}
+                        {/* Logout button at the very end of the sidebar */}
+                        <li className="sidebar-logout-item">
+                            <button onClick={onLogout} className="sidebar-logout-button">Logout</button>
+                        </li>
+                    </ul>
+                </aside>
 
-                {/* Form Management Section */}
-                {!selectedFormForQuestions ? ( // Show Form Management if no form is selected for questions
-                    <div className="admin-section-container form-management-section">
-                        <h3 className="section-title">Form Management</h3>
-                        <button onClick={handleAddForm} className="add-button add-form-button">
-                            Add New Form
-                        </button>
-                        <div className="table-responsive">
-                            <table className="admin-table form-table">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Title</th>
-                                        <th>Description</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {forms.map(form => (
-                                        <tr key={form.id}>
-                                            <td>{form.id}</td>
-                                            <td>{form.title}</td>
-                                            <td>{form.description}</td>
-                                            <td className="table-actions">
-                                                <button onClick={() => fetchFormQuestions(form.id)} className="action-button view-questions-button">
-                                                    Manage Questions
-                                                </button>
-                                                <button onClick={() => handleEditForm(form)} className="action-button edit-button">
-                                                    Edit Form
-                                                </button>
-                                                <button onClick={() => handleDeleteForm(form.id)} className="action-button delete-button">
-                                                    Delete Form
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                {/* Content Area */}
+                <div className={`admin-content-area ${isSidebarOpen ? 'content-pushed' : 'content-full'}`}>
+                    {/* Display general error message if not main tab */}
+                    {!isMainTab && (
+                        <div className="admin-inactive-message">
+                            Admin Panel is inactive. Please use the main active tab.
                         </div>
-                    </div>
-                ) : ( // Show Question Management if a form is selected
-                    <div className="admin-section-container question-management-section">
-                        <h3 className="section-title">Questions for Form: {selectedFormForQuestions.title} (ID: {selectedFormForQuestions.id})</h3>
-                        <button onClick={handleAddQuestion} className="add-button add-question-button">
-                            Add New Question
-                        </button>
-                        <button onClick={() => { setSelectedFormForQuestions(null); setFormQuestions([]); }} className="back-button back-to-forms-button">
-                            ← Back to Forms
-                        </button>
-                        <div className="table-responsive">
-                            <table className="admin-table question-table">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Question Text</th>
-                                        <th>Type</th>
-                                        <th>Options</th>
-                                        <th>Max Selections</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {formQuestions.map(question => (
-                                        <tr key={question.id}>
-                                            <td>{question.id}</td>
-                                            <td>{question.questionText}</td>
-                                            <td>{question.type}</td>
-                                            <td>{question.options && question.options.length > 0 ? question.options.join(', ') : 'N/A'}</td>
-                                            <td>{question.maxSelections || 'N/A'}</td>
-                                            <td className="table-actions">
-                                                <button onClick={() => handleEditQuestion(question)} className="action-button edit-button">
-                                                    Edit
-                                                </button>
-                                                <button onClick={() => handleDeleteQuestion(question.id)} className="action-button delete-button">
-                                                    Delete
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                    )}
+                    {error && isMainTab && !showUserModal && !showFormModal && !showQuestionModal && (
+                        <div className="admin-error-message">❌ {error}</div>
+                    )}
+
+                    {/* Conditional Rendering of Sections */}
+                    {activeSection === 'dashboard' && (
+                        <div className="dashboard-section">
+                            <h3 className="dashboard-welcome-text">Welcome, {username}!</h3>
+                            <p className="dashboard-instruction-text">Use the sidebar to navigate through the admin features.</p>
                         </div>
-                    </div>
-                )}
+                    )}
+
+                    {activeSection === 'userManagement' && (
+                        <div className="admin-section-container user-management-section">
+                            <div className="section-header-controls"> {/* New container for header elements */}
+                                <h3 className="section-title">User Management</h3>
+                                {users.length > 0 && ( /* Only show selector if there are users */
+                                    <div className="items-per-page-selector">
+                                        <label htmlFor="usersPerPage">Items per page:</label>
+                                        <select
+                                            id="usersPerPage"
+                                            value={usersPerPage}
+                                            onChange={handleUsersPerPageChange}
+                                            className="pagination-select"
+                                        >
+                                            <option value={5}>5</option>
+                                            <option value={10}>10</option>
+                                            <option value={20}>20</option>
+                                            <option value={100}>100</option>
+                                        </select>
+                                    </div>
+                                )}
+                            </div>
+                            <button
+                                onClick={handleAddUser}
+                                className="add-button add-user-button"
+                                disabled={!isMainTab}
+                            >
+                                Add New User
+                            </button>
+                            <div className="table-responsive">
+                                <table className="admin-table user-table">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Username</th>
+                                            <th>Roles</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {currentUsers.map(user => ( // Use currentUsers for rendering
+                                            <tr key={user.id}>
+                                                <td>{user.id}</td>
+                                                <td>{user.username}</td>
+                                                <td>{user.roles.map(role => role.name).join(', ')}</td>
+                                                <td className="table-actions">
+                                                    <button onClick={() => handleEditUser(user)} className="action-button edit-button" disabled={!isMainTab}>
+                                                        Edit
+                                                    </button>
+                                                    <button onClick={() => handleDeleteUser(user.id)} className="action-button delete-button" disabled={!isMainTab}>
+                                                        Delete
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {/* Pagination Controls for Users */}
+                            {users.length > 0 && (
+                                <div className="pagination-controls"> {/* This now only contains buttons */}
+                                    <button
+                                        onClick={() => paginateUsers(currentUserPage - 1)}
+                                        disabled={currentUserPage === 1}
+                                        className="pagination-button"
+                                    >
+                                        Previous
+                                    </button>
+                                    {[...Array(totalUserPages).keys()].map(number => (
+                                        <button
+                                            key={number + 1}
+                                            onClick={() => paginateUsers(number + 1)}
+                                            className={`pagination-button ${currentUserPage === number + 1 ? 'active-page' : ''}`}
+                                        >
+                                            {number + 1}
+                                        </button>
+                                    ))}
+                                    <button
+                                        onClick={() => paginateUsers(currentUserPage + 1)}
+                                        disabled={currentUserPage === totalUserPages}
+                                        className="pagination-button"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {activeSection === 'formManagement' && (
+                        <div className="admin-section-container form-management-section">
+                            <div className="section-header-controls"> {/* New container for header elements */}
+                                <h3 className="section-title">Form Management</h3>
+                                {forms.length > 0 && ( /* Only show selector if there are forms */
+                                    <div className="items-per-page-selector">
+                                        <label htmlFor="formsPerPage">Items per page:</label>
+                                        <select
+                                            id="formsPerPage"
+                                            value={formsPerPage}
+                                            onChange={handleFormsPerPageChange}
+                                            className="pagination-select"
+                                        >
+                                            <option value={5}>5</option>
+                                            <option value={10}>10</option>
+                                            <option value={20}>20</option>
+                                            <option value={100}>100</option>
+                                        </select>
+                                    </div>
+                                )}
+                            </div>
+                            <button onClick={handleAddForm} className="add-button add-form-button" disabled={!isMainTab}>
+                                Add New Form
+                            </button>
+                            <div className="table-responsive">
+                                <table className="admin-table form-table">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Title</th>
+                                            <th>Description</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {currentForms.map(form => ( // Use currentForms for rendering
+                                            <tr key={form.id}>
+                                                <td>{form.id}</td>
+                                                <td>{form.title}</td>
+                                                <td>{form.description}</td>
+                                                <td className="table-actions">
+                                                    <button onClick={() => fetchFormQuestions(form.id)} className="action-button view-questions-button" disabled={!isMainTab}>
+                                                        Manage Questions
+                                                    </button>
+                                                    <button onClick={() => handleEditForm(form)} className="action-button edit-button" disabled={!isMainTab}>
+                                                        Edit Form
+                                                    </button>
+                                                    <button onClick={() => handleDeleteForm(form.id)} className="action-button delete-button" disabled={!isMainTab}>
+                                                        Delete Form
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {/* Pagination Controls for Forms */}
+                            {forms.length > 0 && (
+                                <div className="pagination-controls"> {/* This now only contains buttons */}
+                                    <button
+                                        onClick={() => paginateForms(currentFormPage - 1)}
+                                        disabled={currentFormPage === 1}
+                                        className="pagination-button"
+                                    >
+                                        Previous
+                                    </button>
+                                    {[...Array(totalFormPages).keys()].map(number => (
+                                        <button
+                                            key={number + 1}
+                                            onClick={() => paginateForms(number + 1)}
+                                            className={`pagination-button ${currentFormPage === number + 1 ? 'active-page' : ''}`}
+                                        >
+                                            {number + 1}
+                                        </button>
+                                    ))}
+                                    <button
+                                        onClick={() => paginateForms(currentFormPage + 1)}
+                                        disabled={currentFormPage === totalFormPages}
+                                        className="pagination-button"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {activeSection === 'questionManagement' && selectedFormForQuestions && (
+                        <div className="admin-section-container question-management-section">
+                            <div className="section-header-controls"> {/* New container for header elements */}
+                                <h3 className="section-title">Questions for Form: {selectedFormForQuestions.title} (ID: {selectedFormForQuestions.id})</h3>
+                                {formQuestions.length > 0 && ( /* Only show selector if there are questions */
+                                    <div className="items-per-page-selector">
+                                        <label htmlFor="questionsPerPage">Items per page:</label>
+                                        <select
+                                            id="questionsPerPage"
+                                            value={questionsPerPage}
+                                            onChange={handleQuestionsPerPageChange}
+                                            className="pagination-select"
+                                        >
+                                            <option value={5}>5</option>
+                                            <option value={10}>10</option>
+                                            <option value={20}>20</option>
+                                            <option value={100}>100</option>
+                                        </select>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="section-buttons-group"> {/* Group for action buttons */}
+                                <button onClick={handleAddQuestion} className="add-button add-question-button" disabled={!isMainTab}>
+                                    Add New Question
+                                </button>
+                                <button onClick={() => { setSelectedFormForQuestions(null); setFormQuestions([]); setActiveSection('formManagement'); }} className="back-button back-to-forms-button">
+                                    ← Back to Forms
+                                </button>
+                            </div>
+                            <div className="table-responsive">
+                                <table className="admin-table question-table">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Question Text</th>
+                                            <th>Type</th>
+                                            <th>Options</th>
+                                            <th>Max Selections</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {currentQuestions.map(question => ( // Use currentQuestions for rendering
+                                            <tr key={question.id}>
+                                                <td>{question.id}</td>
+                                                <td>{question.questionText}</td>
+                                                <td>{question.type}</td>
+                                                <td>{question.options && question.options.length > 0 ? question.options.join(', ') : 'N/A'}</td>
+                                                <td>{question.maxSelections || 'N/A'}</td>
+                                                <td className="table-actions">
+                                                    <button onClick={() => handleEditQuestion(question)} className="action-button edit-button" disabled={!isMainTab}>
+                                                        Edit
+                                                    </button>
+                                                    <button onClick={() => handleDeleteQuestion(question.id)} className="action-button delete-button" disabled={!isMainTab}>
+                                                        Delete
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {/* Pagination Controls for Questions */}
+                            {formQuestions.length > 0 && ( // Only show pagination if there are questions
+                                <div className="pagination-controls"> {/* This now only contains buttons */}
+                                    <button
+                                        onClick={() => paginateQuestions(currentQuestionsPage - 1)}
+                                        disabled={currentQuestionsPage === 1}
+                                        className="pagination-button"
+                                    >
+                                        Previous
+                                    </button>
+                                    {[...Array(totalQuestionPages).keys()].map(number => (
+                                        <button
+                                            key={number + 1}
+                                            onClick={() => paginateQuestions(number + 1)}
+                                            className={`pagination-button ${currentQuestionsPage === number + 1 ? 'active-page' : ''}`}
+                                        >
+                                            {number + 1}
+                                        </button>
+                                    ))}
+                                    <button
+                                        onClick={() => paginateQuestions(currentQuestionsPage + 1)}
+                                        disabled={currentQuestionsPage === totalQuestionPages}
+                                        className="pagination-button"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* User Modal */}
@@ -553,7 +708,7 @@ function AdminPanel({ onLogout }) {
                     <div className="modal-content user-modal-content">
                         <h3 className="modal-title">{userBeingEdited ? 'Edit User' : 'Add User'}</h3>
                         <form onSubmit={handleUserModalSubmit} className="modal-form user-form">
-                            {userModalError && ( // Display user modal error
+                            {userModalError && (
                                 <div className="error-message modal-error-message">
                                     ❌ {userModalError}
                                 </div>
@@ -576,11 +731,10 @@ function AdminPanel({ onLogout }) {
                                     id="password"
                                     value={userModalPassword}
                                     onChange={(e) => setUserModalPassword(e.target.value)}
-                                    required={!userBeingEdited} // Required only for new users
+                                    required={!userBeingEdited}
                                     className="modal-input"
                                 />
                             </div>
-                            {/* Role selection using checkboxes */}
                             <div className="modal-form-group">
                                 <label>Roles:</label>
                                 <div className="role-checkbox-group">
@@ -628,7 +782,7 @@ function AdminPanel({ onLogout }) {
                                 <input
                                     type="text"
                                     id="formTitle"
-                                    value={currentEditForm.title || ''}
+                                    value={currentEditForm.title}
                                     onChange={(e) => setCurrentEditForm({ ...currentEditForm, title: e.target.value })}
                                     required
                                     className="modal-input"
@@ -638,7 +792,7 @@ function AdminPanel({ onLogout }) {
                                 <label htmlFor="formDescription">Description:</label>
                                 <textarea
                                     id="formDescription"
-                                    value={currentEditForm.description || ''}
+                                    value={currentEditForm.description}
                                     onChange={(e) => setCurrentEditForm({ ...currentEditForm, description: e.target.value })}
                                     className="modal-textarea"
                                 />
@@ -662,20 +816,14 @@ function AdminPanel({ onLogout }) {
                     <div className="modal-content question-modal-content">
                         <h3 className="modal-title">{currentEditQuestion && currentEditQuestion.id ? 'Edit Question' : 'Add Question'}</h3>
                         <form onSubmit={handleQuestionModalSubmit} className="modal-form question-form">
-                            {questionModalError && ( // NEW: Display question modal error
-                                <div className="error-message modal-error-message">
-                                    ❌ {questionModalError}
-                                </div>
-                            )}
                             <div className="modal-form-group">
                                 <label htmlFor="questionText">Question Text:</label>
-                                <input
-                                    type="text"
+                                <textarea
                                     id="questionText"
                                     value={newQuestionText}
                                     onChange={(e) => setNewQuestionText(e.target.value)}
                                     required
-                                    className="modal-input"
+                                    className="modal-textarea"
                                 />
                             </div>
                             <div className="modal-form-group">
@@ -687,13 +835,15 @@ function AdminPanel({ onLogout }) {
                                     className="modal-select"
                                 >
                                     <option value="text">Text</option>
-                                    <option value="radio">Radio</option>
+                                    <option value="textarea">Textarea</option>
+                                    <option value="radio">Radio Button</option>
                                     <option value="checkbox">Checkbox</option>
+                                    <option value="dropdown">Dropdown</option>
                                 </select>
                             </div>
-                            {(newQuestionType === 'radio' || newQuestionType === 'checkbox') && (
+                            {(newQuestionType === 'radio' || newQuestionType === 'checkbox' || newQuestionType === 'dropdown') && (
                                 <div className="modal-form-group">
-                                    <label htmlFor="questionOptions">Options (comma separated):</label>
+                                    <label htmlFor="questionOptions">Options (comma-separated):</label>
                                     <input
                                         type="text"
                                         id="questionOptions"
@@ -706,7 +856,7 @@ function AdminPanel({ onLogout }) {
                             )}
                             {newQuestionType === 'checkbox' && (
                                 <div className="modal-form-group">
-                                    <label htmlFor="maxSelections">Max Selections (optional, number):</label>
+                                    <label htmlFor="maxSelections">Max Selections (optional, for checkbox):</label>
                                     <input
                                         type="number"
                                         id="maxSelections"
