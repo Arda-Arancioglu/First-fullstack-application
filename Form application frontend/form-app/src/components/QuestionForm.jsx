@@ -18,6 +18,10 @@ const QuestionForm = ({ onLogout }) => {
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [myAnswers, setMyAnswers] = useState([]);
+    
+    // Pagination states
+    const [currentPage, setCurrentPage] = useState(1);
+    const [questionsPerPage, setQuestionsPerPage] = useState(5);
     const [myAnswersLoading, setMyAnswersLoading] = useState(false);
     const [myAnswersError, setMyAnswersError] = useState(null);
 
@@ -284,7 +288,22 @@ const QuestionForm = ({ onLogout }) => {
                 {questions.length === 0 ? (
                     <p>No questions available for this form.</p>
                 ) : (
-                    <form className="form-class" onSubmit={handleSubmit}>
+                    <div>
+                        <div className="questions-per-page-selector">
+                            <label>Questions per page: </label>
+                            <select 
+                                value={questionsPerPage} 
+                                onChange={(e) => {
+                                    setQuestionsPerPage(Number(e.target.value));
+                                    setCurrentPage(1); // Reset to first page when changing items per page
+                                }}
+                            >
+                                <option value={5}>5</option>
+                                <option value={10}>10</option>
+                                <option value={15}>15</option>
+                            </select>
+                        </div>
+                        <form className="form-class" onSubmit={handleSubmit}>
                         {/* NEW: Display submission message here */}
                         {submissionMessage && (
                             <div className={`form-submission-message ${submissionMessageType === 'success' ? 'success' : 'error'}`}>
@@ -292,7 +311,10 @@ const QuestionForm = ({ onLogout }) => {
                             </div>
                         )}
 
-                        {questions.map((q) => (
+                        {/* Calculate current page's questions */}
+                        {questions
+                            .slice((currentPage - 1) * questionsPerPage, currentPage * questionsPerPage)
+                            .map((q) => (
                             <div key={q.id} className="mb-4 question-item">
                                 <label>{q.questionText}</label>
                                 <div className="input-with-validation">
@@ -355,12 +377,36 @@ const QuestionForm = ({ onLogout }) => {
                             </div>
                         ))}
 
+                        {/* Pagination Controls */}
+                        <div className="pagination-controls">
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1}
+                                className="pagination-button"
+                            >
+                                Previous
+                            </button>
+                            <span className="page-info">
+                                Page {currentPage} of {Math.ceil(questions.length / questionsPerPage)}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(questions.length / questionsPerPage)))}
+                                disabled={currentPage === Math.ceil(questions.length / questionsPerPage)}
+                                className="pagination-button"
+                            >
+                                Next
+                            </button>
+                        </div>
+
                         <button type="submit" disabled={status === "saving"}
                             className="form-button"
                         >
                             {status === "saving" ? "Saving…" : "Submit"}
                         </button>
                     </form>
+                    </div>
                 )}
             </div>
 
