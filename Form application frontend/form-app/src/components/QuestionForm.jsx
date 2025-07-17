@@ -20,12 +20,36 @@ const QuestionForm = ({ onLogout }) => {
     const [myAnswers, setMyAnswers] = useState([]);
     
     // Pagination states
-    const [currentPage, setCurrentPage] = useState(1);
-    const [questionsPerPage, setQuestionsPerPage] = useState(5);
+    const [currentPage, setCurrentPage] = useState(0); // Changed to 0-based for backend compatibility
+    const [pageSize, setPageSize] = useState(5);
+    const [paginationOptions, setPaginationOptions] = useState({
+        defaultSize: 5,
+        maxSize: 20,
+        allowedSizes: [5, 10, 15, 20]
+    });
+    const [paginationData, setPaginationData] = useState({
+        totalElements: 0,
+        totalPages: 0,
+        first: true,
+        last: false,
+        hasNext: false,
+        hasPrevious: false
+    });
     const [myAnswersLoading, setMyAnswersLoading] = useState(false);
     const [myAnswersError, setMyAnswersError] = useState(null);
 
     const navigate = useNavigate();
+
+    const fetchPaginationOptions = async () => {
+        try {
+            const response = await axiosInstance.get(`/forms/${formId}/questions/pagination-options`);
+            console.log('Pagination options:', response.data);
+            setPaginationOptions(response.data);
+            setPageSize(response.data.defaultSize);
+        } catch (err) {
+            console.error("Error fetching pagination options:", err);
+        }
+    };
 
     const fetchAllData = async () => {
         if (!formId) {
@@ -41,9 +65,21 @@ const QuestionForm = ({ onLogout }) => {
             setLoading(true);
             setValidationErrors({});
 
-            // Fetch questions for the specific formId from /api/forms/{formId}/questions
-            const questionsRes = await axiosInstance.get(`/forms/${formId}/questions`);
-            setQuestions(questionsRes.data);
+            // Fetch paginated questions
+            const questionsRes = await axiosInstance.get(
+                `/forms/${formId}/questions/paginated?page=${currentPage}&size=${pageSize}`
+            );
+            
+            const questionsList = questionsRes.data.content;
+            setQuestions(questionsList);
+            setPaginationData({
+                totalElements: questionsRes.data.totalElements,
+                totalPages: questionsRes.data.totalPages,
+                first: questionsRes.data.first,
+                last: questionsRes.data.last,
+                hasNext: questionsRes.data.hasNext,
+                hasPrevious: questionsRes.data.hasPrevious
+            });
 
             // Fetch user's existing answers
             const userAnswersRes = await axiosInstance.get("/answers/my-answers");
@@ -55,7 +91,7 @@ const QuestionForm = ({ onLogout }) => {
 
             // Pre-fill form answers with existing ones
             const initialFormAnswers = {};
-            questionsRes.data.forEach(q => {
+            questionsList.forEach(q => {
                 if (existingAnswersMap[q.id]) {
                     if (q.type === 'checkbox') {
                         initialFormAnswers[q.id] = existingAnswersMap[q.id].response ? existingAnswersMap[q.id].response.split(',').map(s => s.trim()) : [];
@@ -86,10 +122,20 @@ const QuestionForm = ({ onLogout }) => {
         }
     };
 
-    // Trigger fetchAllData when component mounts or formId changes
+    // Fetch pagination options when component mounts
     useEffect(() => {
-        fetchAllData();
-    }, [formId, onLogout]);
+        if (formId) {
+            fetchPaginationOptions();
+        }
+    }, [formId]);
+
+    // Trigger fetchAllData when component mounts or pagination changes
+    useEffect(() => {
+        console.log('Effect triggered with pageSize:', pageSize, 'currentPage:', currentPage);
+        if (formId) {
+            fetchAllData();
+        }
+    }, [formId, currentPage, pageSize]);
 
     // Fetch user's answers for sidebar when sidebar is opened
     useEffect(() => {
@@ -292,15 +338,19 @@ const QuestionForm = ({ onLogout }) => {
                         <div className="questions-per-page-selector">
                             <label>Questions per page: </label>
                             <select 
-                                value={questionsPerPage} 
+                                value={pageSize} 
                                 onChange={(e) => {
-                                    setQuestionsPerPage(Number(e.target.value));
-                                    setCurrentPage(1); // Reset to first page when changing items per page
+                                    e.preventDefault();
+                                    const newSize = parseInt(e.target.value, 10);
+                                    if (newSize && newSize > 0) {
+                                        setCurrentPage(0); // Reset to first page when changing page size
+                                        setPageSize(newSize); // This will trigger the useEffect
+                                    }
                                 }}
                             >
-                                <option value={5}>5</option>
-                                <option value={10}>10</option>
-                                <option value={15}>15</option>
+                                {paginationOptions.allowedSizes.map(size => (
+                                    <option key={size} value={size}>{size}</option>
+                                ))}
                             </select>
                         </div>
                         <form className="form-class" onSubmit={handleSubmit}>
@@ -311,10 +361,8 @@ const QuestionForm = ({ onLogout }) => {
                             </div>
                         )}
 
-                        {/* Calculate current page's questions */}
-                        {questions
-                            .slice((currentPage - 1) * questionsPerPage, currentPage * questionsPerPage)
-                            .map((q) => (
+                        {/* Display questions from current page */}
+                        {questions.map((q) => (
                             <div key={q.id} className="mb-4 question-item">
                                 <label>{q.questionText}</label>
                                 <div className="input-with-validation">
@@ -381,19 +429,20 @@ const QuestionForm = ({ onLogout }) => {
                         <div className="pagination-controls">
                             <button
                                 type="button"
-                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                                disabled={currentPage === 1}
+                                onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+                                disabled={currentPage === 0}
                                 className="pagination-button"
                             >
                                 Previous
                             </button>
                             <span className="page-info">
-                                Page {currentPage} of {Math.ceil(questions.length / questionsPerPage)}
+                                Page {currentPage + 1} of {paginationData.totalPages}
+                                ({paginationData.totalElements} total items)
                             </span>
                             <button
                                 type="button"
-                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(questions.length / questionsPerPage)))}
-                                disabled={currentPage === Math.ceil(questions.length / questionsPerPage)}
+                                onClick={() => setCurrentPage(prev => prev + 1)}
+                                disabled={currentPage >= paginationData.totalPages - 1}
                                 className="pagination-button"
                             >
                                 Next

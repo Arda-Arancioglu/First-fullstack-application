@@ -218,14 +218,14 @@ function ChatbotWidget({ onLogout, currentUser }) { // NEW: Accept currentUser p
             <div className={`chatbot-widget-panel ${isOpen ? 'open' : ''}`}>
                 <div className="widget-header">
                     <h3 className="widget-title">AI Assistant</h3>
-                    {/* Display full userId for debugging, then can shorten */}
-                    {userId && <span className="user-id-display">User ID: {userId}</span>}
-                    <button onClick={handleClearChat} className="clear-chat-button" aria-label="Clear Chat">
-                        Clear Chat
-                    </button>
-                    <button onClick={toggleWidget} className="widget-close-button" aria-label="Close Chatbot">
-                        &times;
-                    </button>
+                    <div className="widget-buttons">
+                        <button onClick={handleClearChat} className="clear-chat-button" aria-label="Clear Chat">
+                            Clear Chat
+                        </button>
+                        <button onClick={toggleWidget} className="widget-close-button" aria-label="Close Chatbot">
+                            Close
+                        </button>
+                    </div>
                 </div>
                 <div className="messages-display">
                     {isLoadingChat ? (

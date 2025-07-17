@@ -1,16 +1,21 @@
 // src/main/java/com/example/backend/controller/QuestionController.java
 package com.example.backend.controller;
 
+import com.example.backend.dto.PagedResponse;
 import com.example.backend.model.Form;
 import com.example.backend.model.Question;
 import com.example.backend.repository.FormRepository;
-import com.example.backend.repository.QuestionRepository;
+import com.example.backend.service.QuestionService;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -19,16 +24,60 @@ import java.util.Optional;
 @CrossOrigin(origins = "http://localhost:5173", maxAge = 3600)
 public class QuestionController {
 
-    private final QuestionRepository questionRepository;
-    private final FormRepository formRepository; // NEW: Inject FormRepository
+    private final QuestionService questionService;
+    private final FormRepository formRepository;
 
-    public QuestionController(QuestionRepository questionRepository, FormRepository formRepository) {
-        this.questionRepository = questionRepository;
+    public QuestionController(QuestionService questionService, FormRepository formRepository) {
+        this.questionService = questionService;
         this.formRepository = formRepository;
     }
 
     /**
-     * Endpoint to get a list of all questions for a specific form.
+     * Endpoint to get pagination options available for questions.
+     * This tells the frontend what pagination sizes are allowed.
+     * @return ResponseEntity containing pagination configuration.
+     */
+    @GetMapping("/pagination-options")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> getPaginationOptions() {
+        Map<String, Object> options = new HashMap<>();
+        options.put("defaultSize", 5);
+        options.put("maxSize", 20);
+        options.put("allowedSizes", Arrays.asList(5, 10, 15, 20));
+        return ResponseEntity.ok(options);
+    }
+
+    /**
+     * Endpoint to get a paginated list of questions for a specific form.
+     * Accessible by 'USER' or 'ADMIN' role.
+     * @param formId The ID of the form.
+     * @param page The page number (0-based).
+     * @param size The number of items per page.
+     * @param sortBy The field to sort by.
+     * @param sortDirection The sort direction (asc/desc).
+     * @return ResponseEntity containing a paginated response of Question objects.
+     */
+    @GetMapping("/paginated")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
+    public ResponseEntity<PagedResponse<Question>> getQuestionsByFormIdPaginated(
+            @PathVariable Long formId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDirection) {
+
+        Optional<Form> formOptional = formRepository.findById(formId);
+        if (formOptional.isEmpty()) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND); // Form not found
+        }
+
+        Page<Question> questionsPage = questionService.getQuestionsByFormId(formId, page, size, sortBy, sortDirection);
+        PagedResponse<Question> response = new PagedResponse<>(questionsPage);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Endpoint to get a list of all questions for a specific form (original method kept for backward compatibility).
      * Accessible by 'USER' or 'ADMIN' role.
      * @param formId The ID of the form.
      * @return ResponseEntity containing a list of Question objects.
@@ -40,8 +89,7 @@ public class QuestionController {
         if (formOptional.isEmpty()) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND); // Form not found
         }
-        // Assuming QuestionRepository has findByFormId method (will add in next step)
-        List<Question> questions = questionRepository.findByFormId(formId);
+        List<Question> questions = questionService.getAllQuestionsByFormId(formId);
         return ResponseEntity.ok(questions);
     }
 
@@ -60,7 +108,7 @@ public class QuestionController {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND); // Form not found
         }
         question.setForm(formOptional.get()); // Associate the question with the found form
-        Question savedQuestion = questionRepository.save(question);
+        Question savedQuestion = questionService.saveQuestion(question);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedQuestion);
     }
 
@@ -73,7 +121,7 @@ public class QuestionController {
     @GetMapping("/{questionId}")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<Question> getQuestionByIdAndFormId(@PathVariable Long formId, @PathVariable Long questionId) {
-        Optional<Question> questionOptional = questionRepository.findById(questionId);
+        Optional<Question> questionOptional = questionService.getQuestionById(questionId);
         if (questionOptional.isEmpty()) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
@@ -95,7 +143,7 @@ public class QuestionController {
     @PutMapping("/{questionId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Question> updateQuestionForForm(@PathVariable Long formId, @PathVariable Long questionId, @RequestBody Question questionDetails) {
-        Optional<Question> questionOptional = questionRepository.findById(questionId);
+        Optional<Question> questionOptional = questionService.getQuestionById(questionId);
         if (questionOptional.isEmpty()) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
@@ -110,7 +158,7 @@ public class QuestionController {
         question.setOptions(questionDetails.getOptions());
         question.setMaxSelections(questionDetails.getMaxSelections());
 
-        Question updatedQuestion = questionRepository.save(question);
+        Question updatedQuestion = questionService.saveQuestion(question);
         return ResponseEntity.ok(updatedQuestion);
     }
 
@@ -124,7 +172,7 @@ public class QuestionController {
     @DeleteMapping("/{questionId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<HttpStatus> deleteQuestionFromForm(@PathVariable Long formId, @PathVariable Long questionId) {
-        Optional<Question> questionOptional = questionRepository.findById(questionId);
+        Optional<Question> questionOptional = questionService.getQuestionById(questionId);
         if (questionOptional.isEmpty()) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
@@ -132,7 +180,7 @@ public class QuestionController {
         if (question.getForm() == null || !question.getForm().getId().equals(formId)) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND); // Question does not belong to this form
         }
-        questionRepository.deleteById(questionId);
+        questionService.deleteQuestion(questionId);
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 }
