@@ -36,6 +36,12 @@ function AdminPanel({ onLogout, isMainTab }) {
     const [userSort, setUserSort] = useState({ sortBy: 'id', sortDirection: 'asc' });
     const [formSort, setFormSort] = useState({ sortBy: 'id', sortDirection: 'asc' });
 
+    // Temporary filter states (before applying)
+    const [tempUserFilters, setTempUserFilters] = useState({});
+    const [tempFormFilters, setTempFormFilters] = useState({});
+    const [tempUserSort, setTempUserSort] = useState({ sortBy: 'id', sortDirection: 'asc' });
+    const [tempFormSort, setTempFormSort] = useState({ sortBy: 'id', sortDirection: 'asc' });
+
     // Modals state
     const [showUserModal, setShowUserModal] = useState(false);
     const [showFormModal, setShowFormModal] = useState(false);
@@ -101,9 +107,15 @@ function AdminPanel({ onLogout, isMainTab }) {
         setUsersPage(0); // Reset to first page when changing page size
     };
 
+    // Temporary handlers for backward compatibility
     const handleUsersSortChange = (sortBy, sortDirection) => {
         setUserSort({ sortBy, sortDirection });
         setUsersPage(0); // Reset to first page when changing sort
+    };
+
+    const handleFormsSortChange = (sortBy, sortDirection) => {
+        setFormSort({ sortBy, sortDirection });
+        setFormsPage(0); // Reset to first page when changing sort
     };
 
     // Handle form pagination changes
@@ -116,36 +128,57 @@ function AdminPanel({ onLogout, isMainTab }) {
         setFormsPage(0); // Reset to first page when changing page size
     };
 
-    const handleFormsSortChange = (sortBy, sortDirection) => {
-        setFormSort({ sortBy, sortDirection });
-        setFormsPage(0); // Reset to first page when changing sort
-    };
-
-    // Handle filter changes
+    // Handle filter changes (temporary - not applied immediately)
     const handleUserFilterChange = (filterKey, filterValue) => {
-        setUserFilters(prev => ({
+        setTempUserFilters(prev => ({
             ...prev,
             [filterKey]: filterValue
         }));
-        setUsersPage(0); // Reset to first page when changing filters
     };
 
     const handleFormFilterChange = (filterKey, filterValue) => {
-        setFormFilters(prev => ({
+        setTempFormFilters(prev => ({
             ...prev,
             [filterKey]: filterValue
         }));
-        setFormsPage(0); // Reset to first page when changing filters
+    };
+
+    // Handle sort changes (temporary - not applied immediately)
+    const handleUserSortChange = (sortBy, sortDirection) => {
+        setTempUserSort({ sortBy, sortDirection });
+    };
+
+    const handleFormSortChange = (sortBy, sortDirection) => {
+        setTempFormSort({ sortBy, sortDirection });
+    };
+
+    // Apply filters and sorting
+    const applyUserFilters = () => {
+        setUserFilters(tempUserFilters);
+        setUserSort(tempUserSort);
+        setUsersPage(0); // Reset to first page when applying filters
+    };
+
+    const applyFormFilters = () => {
+        setFormFilters(tempFormFilters);
+        setFormSort(tempFormSort);
+        setFormsPage(0); // Reset to first page when applying filters
     };
 
     // Clear filters
     const clearUserFilters = () => {
+        setTempUserFilters({});
         setUserFilters({});
+        setTempUserSort({ sortBy: 'id', sortDirection: 'asc' });
+        setUserSort({ sortBy: 'id', sortDirection: 'asc' });
         setUsersPage(0);
     };
 
     const clearFormFilters = () => {
+        setTempFormFilters({});
         setFormFilters({});
+        setTempFormSort({ sortBy: 'id', sortDirection: 'asc' });
+        setFormSort({ sortBy: 'id', sortDirection: 'asc' });
         setFormsPage(0);
     };
 
@@ -311,10 +344,7 @@ function AdminPanel({ onLogout, isMainTab }) {
     // Effect for fetching data based on isMainTab status and filter/pagination changes
     useEffect(() => {
         console.log('AdminPanel: Data fetching effect, isMainTab:', isMainTab);
-        console.log('AdminPanel: Skipping data fetch for debugging');
-        // Temporarily disable data fetching for debugging
-        /*
-        // Temporarily bypass isMainTab check for testing
+        // Re-enable data fetching with backend
         if (true || isMainTab) {
             console.log('AdminPanel: Attempting to fetch admin data');
             fetchAllAdminData(); // If this tab is the main tab, attempt to fetch data
@@ -322,7 +352,6 @@ function AdminPanel({ onLogout, isMainTab }) {
             setError("Admin Panel is inactive. Please use the main active tab.");
             setLoading(false);
         }
-        */
     }, [isMainTab, usersPage, usersSize, userFilters, userSort, formsPage, formsSize, formFilters, formSort]); // Updated dependencies
 
     const toggleSidebar = () => {
@@ -618,7 +647,7 @@ function AdminPanel({ onLogout, isMainTab }) {
                             
                             {/* Advanced Filter Controls for Users */}
                             <div className="advanced-filter-section">
-                                <h4 className="filter-section-title">🔍 Advanced Filters</h4>
+                                <h4 className="filter-section-title">🔍 Advanced Filters & Sorting</h4>
                                 
                                 <div className="filter-grid">
                                     {/* Username Filters */}
@@ -627,12 +656,12 @@ function AdminPanel({ onLogout, isMainTab }) {
                                         <div className="filter-input-group">
                                             <select 
                                                 className="filter-operator-select"
-                                                value={userFilters.username_operator || 'contains'}
+                                                value={tempUserFilters.username_operator || 'contains'}
                                                 onChange={(e) => {
                                                     const operator = e.target.value;
-                                                    const currentValue = userFilters[Object.keys(userFilters).find(key => key.startsWith('username_'))] || '';
+                                                    const currentValue = tempUserFilters[Object.keys(tempUserFilters).find(key => key.startsWith('username_'))] || '';
                                                     // Remove old username filter
-                                                    const newFilters = { ...userFilters };
+                                                    const newFilters = { ...tempUserFilters };
                                                     Object.keys(newFilters).forEach(key => {
                                                         if (key.startsWith('username_')) delete newFilters[key];
                                                     });
@@ -640,7 +669,7 @@ function AdminPanel({ onLogout, isMainTab }) {
                                                         newFilters[`username_${operator}`] = currentValue;
                                                     }
                                                     newFilters.username_operator = operator;
-                                                    setUserFilters(newFilters);
+                                                    setTempUserFilters(newFilters);
                                                 }}
                                             >
                                                 <option value="eq">Equals</option>
@@ -653,9 +682,9 @@ function AdminPanel({ onLogout, isMainTab }) {
                                                 type="text"
                                                 className="filter-input"
                                                 placeholder="Enter username..."
-                                                value={userFilters[Object.keys(userFilters).find(key => key.startsWith('username_') && key !== 'username_operator')] || ''}
+                                                value={tempUserFilters[Object.keys(tempUserFilters).find(key => key.startsWith('username_') && key !== 'username_operator')] || ''}
                                                 onChange={(e) => {
-                                                    const operator = userFilters.username_operator || 'contains';
+                                                    const operator = tempUserFilters.username_operator || 'contains';
                                                     handleUserFilterChange(`username_${operator}`, e.target.value);
                                                 }}
                                             />
@@ -668,12 +697,12 @@ function AdminPanel({ onLogout, isMainTab }) {
                                         <div className="filter-input-group">
                                             <select 
                                                 className="filter-operator-select"
-                                                value={userFilters.id_operator || 'eq'}
+                                                value={tempUserFilters.id_operator || 'eq'}
                                                 onChange={(e) => {
                                                     const operator = e.target.value;
-                                                    const currentValue = userFilters[Object.keys(userFilters).find(key => key.startsWith('id_'))] || '';
+                                                    const currentValue = tempUserFilters[Object.keys(tempUserFilters).find(key => key.startsWith('id_'))] || '';
                                                     // Remove old id filter
-                                                    const newFilters = { ...userFilters };
+                                                    const newFilters = { ...tempUserFilters };
                                                     Object.keys(newFilters).forEach(key => {
                                                         if (key.startsWith('id_')) delete newFilters[key];
                                                     });
@@ -681,7 +710,7 @@ function AdminPanel({ onLogout, isMainTab }) {
                                                         newFilters[`id_${operator}`] = currentValue;
                                                     }
                                                     newFilters.id_operator = operator;
-                                                    setUserFilters(newFilters);
+                                                    setTempUserFilters(newFilters);
                                                 }}
                                             >
                                                 <option value="eq">Equals</option>
@@ -696,9 +725,9 @@ function AdminPanel({ onLogout, isMainTab }) {
                                                 type="text"
                                                 className="filter-input"
                                                 placeholder="Enter ID..."
-                                                value={userFilters[Object.keys(userFilters).find(key => key.startsWith('id_') && key !== 'id_operator')] || ''}
+                                                value={tempUserFilters[Object.keys(tempUserFilters).find(key => key.startsWith('id_') && key !== 'id_operator')] || ''}
                                                 onChange={(e) => {
-                                                    const operator = userFilters.id_operator || 'eq';
+                                                    const operator = tempUserFilters.id_operator || 'eq';
                                                     handleUserFilterChange(`id_${operator}`, e.target.value);
                                                 }}
                                             />
@@ -711,12 +740,12 @@ function AdminPanel({ onLogout, isMainTab }) {
                                         <div className="filter-input-group">
                                             <select 
                                                 className="filter-operator-select"
-                                                value={userFilters.roles_operator || 'contains'}
+                                                value={tempUserFilters.roles_operator || 'contains'}
                                                 onChange={(e) => {
                                                     const operator = e.target.value;
-                                                    const currentValue = userFilters[Object.keys(userFilters).find(key => key.startsWith('roles_'))] || '';
+                                                    const currentValue = tempUserFilters[Object.keys(tempUserFilters).find(key => key.startsWith('roles_'))] || '';
                                                     // Remove old roles filter
-                                                    const newFilters = { ...userFilters };
+                                                    const newFilters = { ...tempUserFilters };
                                                     Object.keys(newFilters).forEach(key => {
                                                         if (key.startsWith('roles_')) delete newFilters[key];
                                                     });
@@ -724,7 +753,7 @@ function AdminPanel({ onLogout, isMainTab }) {
                                                         newFilters[`roles_${operator}`] = currentValue;
                                                     }
                                                     newFilters.roles_operator = operator;
-                                                    setUserFilters(newFilters);
+                                                    setTempUserFilters(newFilters);
                                                 }}
                                             >
                                                 <option value="contains">Contains role</option>
@@ -733,9 +762,9 @@ function AdminPanel({ onLogout, isMainTab }) {
                                             </select>
                                             <select
                                                 className="filter-input"
-                                                value={userFilters[Object.keys(userFilters).find(key => key.startsWith('roles_') && key !== 'roles_operator')] || ''}
+                                                value={tempUserFilters[Object.keys(tempUserFilters).find(key => key.startsWith('roles_') && key !== 'roles_operator')] || ''}
                                                 onChange={(e) => {
-                                                    const operator = userFilters.roles_operator || 'contains';
+                                                    const operator = tempUserFilters.roles_operator || 'contains';
                                                     handleUserFilterChange(`roles_${operator}`, e.target.value);
                                                 }}
                                             >
@@ -745,12 +774,42 @@ function AdminPanel({ onLogout, isMainTab }) {
                                             </select>
                                         </div>
                                     </div>
+
+                                    {/* Sort Controls */}
+                                    <div className="filter-group">
+                                        <label className="filter-label">Sort By</label>
+                                        <div className="filter-input-group">
+                                            <select 
+                                                className="filter-operator-select"
+                                                value={tempUserSort.sortBy}
+                                                onChange={(e) => handleUserSortChange(e.target.value, tempUserSort.sortDirection)}
+                                            >
+                                                <option value="id">ID</option>
+                                                <option value="username">Username</option>
+                                                <option value="createdAt">Created Date</option>
+                                                <option value="updatedAt">Updated Date</option>
+                                            </select>
+                                            <select
+                                                className="filter-input"
+                                                value={tempUserSort.sortDirection}
+                                                onChange={(e) => handleUserSortChange(tempUserSort.sortBy, e.target.value)}
+                                            >
+                                                <option value="asc">Ascending ↑</option>
+                                                <option value="desc">Descending ↓</option>
+                                            </select>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="filter-actions">
-                                    <button onClick={clearUserFilters} className="clear-filters-button">
-                                        �️ Clear Filters
-                                    </button>
+                                    <div className="filter-action-buttons">
+                                        <button onClick={applyUserFilters} className="apply-filters-button">
+                                            Apply Filters
+                                        </button>
+                                        <button onClick={clearUserFilters} className="clear-filters-button">
+                                            Clear All
+                                        </button>
+                                    </div>
                                     <div className="active-filters-display">
                                         {Object.keys(userFilters).filter(key => !key.endsWith('_operator') && userFilters[key]).length > 0 && (
                                             <span className="active-filters-count">
@@ -761,26 +820,6 @@ function AdminPanel({ onLogout, isMainTab }) {
                                 </div>
                             </div>
 
-                            {/* Sorting Controls for Users */}
-                            {users.length > 0 && (
-                                <div className="sorting-controls">
-                                    <span className="sorting-label">Sort by:</span>
-                                    <div className="sorting-buttons">
-                                        <button
-                                            onClick={() => handleUsersSortChange('id', userSort.sortDirection === 'asc' ? 'desc' : 'asc')}
-                                            className={`sort-button ${userSort.sortBy === 'id' ? 'active' : ''}`}
-                                        >
-                                            ID {userSort.sortBy === 'id' && (userSort.sortDirection === 'asc' ? '↑' : '↓')}
-                                        </button>
-                                        <button
-                                            onClick={() => handleUsersSortChange('username', userSort.sortDirection === 'asc' ? 'desc' : 'asc')}
-                                            className={`sort-button ${userSort.sortBy === 'username' ? 'active' : ''}`}
-                                        >
-                                            Username {userSort.sortBy === 'username' && (userSort.sortDirection === 'asc' ? '↑' : '↓')}
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
                             <button
                                 onClick={handleAddUser}
                                 className="add-button add-user-button"
@@ -1002,9 +1041,14 @@ function AdminPanel({ onLogout, isMainTab }) {
                                 </div>
 
                                 <div className="filter-actions">
-                                    <button onClick={clearFormFilters} className="clear-filters-button">
-                                        �️ Clear Filters
-                                    </button>
+                                    <div className="filter-action-buttons">
+                                        <button onClick={applyFormFilters} className="apply-filters-button">
+                                            Apply Filters
+                                        </button>
+                                        <button onClick={clearFormFilters} className="clear-filters-button">
+                                            Clear All
+                                        </button>
+                                    </div>
                                     <div className="active-filters-display">
                                         {Object.keys(formFilters).filter(key => !key.endsWith('_operator') && formFilters[key]).length > 0 && (
                                             <span className="active-filters-count">
@@ -1015,32 +1059,6 @@ function AdminPanel({ onLogout, isMainTab }) {
                                 </div>
                             </div>
 
-                            {/* Sorting Controls for Forms */}
-                            {forms.length > 0 && (
-                                <div className="sorting-controls">
-                                    <span className="sorting-label">Sort by:</span>
-                                    <div className="sorting-buttons">
-                                        <button
-                                            onClick={() => handleFormsSortChange('id', formSort.sortDirection === 'asc' ? 'desc' : 'asc')}
-                                            className={`sort-button ${formSort.sortBy === 'id' ? 'active' : ''}`}
-                                        >
-                                            ID {formSort.sortBy === 'id' && (formSort.sortDirection === 'asc' ? '↑' : '↓')}
-                                        </button>
-                                        <button
-                                            onClick={() => handleFormsSortChange('title', formSort.sortDirection === 'asc' ? 'desc' : 'asc')}
-                                            className={`sort-button ${formSort.sortBy === 'title' ? 'active' : ''}`}
-                                        >
-                                            Title {formSort.sortBy === 'title' && (formSort.sortDirection === 'asc' ? '↑' : '↓')}
-                                        </button>
-                                        <button
-                                            onClick={() => handleFormsSortChange('description', formSort.sortDirection === 'asc' ? 'desc' : 'asc')}
-                                            className={`sort-button ${formSort.sortBy === 'description' ? 'active' : ''}`}
-                                        >
-                                            Description {formSort.sortBy === 'description' && (formSort.sortDirection === 'asc' ? '↑' : '↓')}
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
                             <button onClick={handleAddForm} className="add-button add-form-button" disabled={!isMainTab}>
                                 Add New Form
                             </button>
