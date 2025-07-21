@@ -12,14 +12,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 @RestController
-// Changed base path to reflect questions being nested under forms
 @RequestMapping("/api/forms/{formId}/questions")
 @CrossOrigin(origins = "http://localhost:5173", maxAge = 3600)
 public class QuestionController {
@@ -34,7 +32,7 @@ public class QuestionController {
 
     /**
      * Endpoint to get pagination options available for questions.
-     * This tells the frontend what pagination sizes are allowed.
+     * Updated to reflect more flexible pagination approach.
      * @return ResponseEntity containing pagination configuration.
      */
     @GetMapping("/pagination-options")
@@ -42,17 +40,19 @@ public class QuestionController {
     public ResponseEntity<Map<String, Object>> getPaginationOptions() {
         Map<String, Object> options = new HashMap<>();
         options.put("defaultSize", 5);
-        options.put("maxSize", 20);
-        options.put("allowedSizes", Arrays.asList(5, 10, 15, 20));
+        options.put("minSize", 1);
+        options.put("maxSize", 100); // Increased max size for flexibility
+        options.put("suggestedSizes", List.of(5, 10, 15, 20, 25, 50)); // Suggested common sizes
         return ResponseEntity.ok(options);
     }
 
     /**
      * Endpoint to get a paginated list of questions for a specific form.
+     * Updated with flexible pagination parameters.
      * Accessible by 'USER' or 'ADMIN' role.
      * @param formId The ID of the form.
-     * @param page The page number (0-based).
-     * @param size The number of items per page.
+     * @param pageNo The page number (0-based, renamed for clarity).
+     * @param questionLimit The number of questions per page (flexible size).
      * @param sortBy The field to sort by.
      * @param sortDirection The sort direction (asc/desc).
      * @return ResponseEntity containing a paginated response of Question objects.
@@ -61,8 +61,8 @@ public class QuestionController {
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<PagedResponse<Question>> getQuestionsByFormIdPaginated(
             @PathVariable Long formId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "5") int size,
+            @RequestParam(defaultValue = "0") int pageNo,
+            @RequestParam(defaultValue = "5") int questionLimit,
             @RequestParam(defaultValue = "id") String sortBy,
             @RequestParam(defaultValue = "asc") String sortDirection) {
 
@@ -71,7 +71,32 @@ public class QuestionController {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND); // Form not found
         }
 
-        Page<Question> questionsPage = questionService.getQuestionsByFormId(formId, page, size, sortBy, sortDirection);
+        Page<Question> questionsPage = questionService.getQuestionsByFormId(
+                formId, pageNo, questionLimit, sortBy, sortDirection);
+        PagedResponse<Question> response = new PagedResponse<>(questionsPage);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Alternative endpoint with more intuitive parameter names.
+     * Example: /api/forms/1/questions/page?pageNo=1&questionLimit=10
+     */
+    @GetMapping("/page")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
+    public ResponseEntity<PagedResponse<Question>> getQuestionsPage(
+            @PathVariable Long formId,
+            @RequestParam(defaultValue = "0") int pageNo,
+            @RequestParam(defaultValue = "5") int questionLimit,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDirection) {
+
+        Optional<Form> formOptional = formRepository.findById(formId);
+        if (formOptional.isEmpty()) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+
+        Page<Question> questionsPage = questionService.getQuestionsByFormId(
+                formId, pageNo, questionLimit, sortBy, sortDirection);
         PagedResponse<Question> response = new PagedResponse<>(questionsPage);
         return ResponseEntity.ok(response);
     }

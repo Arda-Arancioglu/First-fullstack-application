@@ -9,7 +9,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,8 +16,9 @@ import java.util.Optional;
 public class QuestionService {
 
     private static final int DEFAULT_PAGE_SIZE = 5;
-    private static final int MAX_PAGE_SIZE = 20;
-    private static final List<Integer> ALLOWED_SIZES = Arrays.asList(5, 10, 15, 20);
+    private static final int MIN_PAGE_SIZE = 1;
+    private static final int MAX_PAGE_SIZE = 100; // Increased for flexibility
+    private static final List<Integer> SUGGESTED_SIZES = List.of(5, 10, 15, 20, 25, 50);
 
     private final QuestionRepository questionRepository;
 
@@ -27,23 +27,24 @@ public class QuestionService {
     }
 
     /**
-     * Get paginated questions for a specific form with validation.
+     * Get paginated questions for a specific form with flexible validation.
      * @param formId The ID of the form.
-     * @param page The page number (0-based).
-     * @param size The number of items per page.
+     * @param pageNo The page number (0-based).
+     * @param questionLimit The number of questions per page (flexible size).
      * @param sortBy The field to sort by.
      * @param sortDirection The sort direction (asc/desc).
      * @return Page of questions.
      */
-    public Page<Question> getQuestionsByFormId(Long formId, int page, int size, String sortBy, String sortDirection) {
-        // Validate and adjust page size
-        size = validatePageSize(size);
+    public Page<Question> getQuestionsByFormId(Long formId, int pageNo, int questionLimit, String sortBy, String sortDirection) {
+        // Validate and adjust page parameters
+        pageNo = validatePageNumber(pageNo);
+        questionLimit = validatePageSize(questionLimit);
 
-        // Create sort object
-        Sort sort = Sort.by(Sort.Direction.fromString(sortDirection), sortBy);
+        // Create sort object with validation
+        Sort sort = createSort(sortBy, sortDirection);
 
         // Create pageable object
-        Pageable pageable = PageRequest.of(page, size, sort);
+        Pageable pageable = PageRequest.of(pageNo, questionLimit, sort);
 
         // Return paginated results
         return questionRepository.findByFormId(formId, pageable);
@@ -85,36 +86,101 @@ public class QuestionService {
     }
 
     /**
-     * Validate and adjust page size according to business rules.
-     * @param size The requested page size.
+     * Advanced pagination method with search functionality.
+     * @param formId The ID of the form.
+     * @param pageNo The page number (0-based).
+     * @param questionLimit The number of questions per page.
+     * @param sortBy The field to sort by.
+     * @param sortDirection The sort direction.
+     * @param searchTerm Optional search term for filtering questions.
+     * @return Page of questions matching the criteria.
+     */
+    public Page<Question> searchQuestionsByFormId(Long formId, int pageNo, int questionLimit,
+                                                  String sortBy, String sortDirection, String searchTerm) {
+        pageNo = validatePageNumber(pageNo);
+        questionLimit = validatePageSize(questionLimit);
+        Sort sort = createSort(sortBy, sortDirection);
+        Pageable pageable = PageRequest.of(pageNo, questionLimit, sort);
+
+        if (searchTerm != null && !searchTerm.trim().isEmpty()) {
+            return questionRepository.findByFormIdAndSearchTerm(formId, searchTerm.trim(), pageable);
+        } else {
+            return questionRepository.findByFormId(formId, pageable);
+        }
+    }
+
+    /**
+     * Validate and adjust page number.
+     * @param pageNo The requested page number.
+     * @return The validated page number.
+     */
+    private int validatePageNumber(int pageNo) {
+        return Math.max(0, pageNo); // Ensure page number is not negative
+    }
+
+    /**
+     * Validate and adjust page size with flexible limits.
+     * @param questionLimit The requested page size.
      * @return The validated page size.
      */
-    private int validatePageSize(int size) {
-        // If size is not in allowed sizes, use default
-        if (!ALLOWED_SIZES.contains(size)) {
+    private int validatePageSize(int questionLimit) {
+        // Ensure minimum size
+        if (questionLimit < MIN_PAGE_SIZE) {
             return DEFAULT_PAGE_SIZE;
         }
 
-        // Additional validation: ensure it's not negative or zero
-        if (size <= 0) {
-            return DEFAULT_PAGE_SIZE;
-        }
-
-        // Ensure it doesn't exceed maximum
-        if (size > MAX_PAGE_SIZE) {
+        // Ensure maximum size
+        if (questionLimit > MAX_PAGE_SIZE) {
             return MAX_PAGE_SIZE;
         }
 
-        return size;
+        return questionLimit;
+    }
+
+    /**
+     * Create a Sort object with validation for sort fields.
+     * @param sortBy The field to sort by.
+     * @param sortDirection The sort direction.
+     * @return Sort object.
+     */
+    private Sort createSort(String sortBy, String sortDirection) {
+        // Validate sort field - only allow safe fields
+        String validatedSortBy = validateSortField(sortBy);
+
+        // Validate sort direction
+        Sort.Direction direction;
+        try {
+            direction = Sort.Direction.fromString(sortDirection);
+        } catch (IllegalArgumentException e) {
+            direction = Sort.Direction.ASC; // Default to ascending
+        }
+
+        return Sort.by(direction, validatedSortBy);
+    }
+
+    /**
+     * Validate sort field to prevent SQL injection and ensure field exists.
+     * @param sortBy The requested sort field.
+     * @return The validated sort field.
+     */
+    private String validateSortField(String sortBy) {
+        // List of allowed sort fields
+        List<String> allowedFields = List.of("id", "questionText", "type", "maxSelections");
+
+        if (sortBy == null || !allowedFields.contains(sortBy)) {
+            return "id"; // Default sort field
+        }
+
+        return sortBy;
     }
 
     /**
      * Get pagination configuration for frontend.
-     * @return Map containing pagination settings.
      */
     public static class PaginationConfig {
         public static final int DEFAULT_SIZE = DEFAULT_PAGE_SIZE;
+        public static final int MIN_SIZE = MIN_PAGE_SIZE;
         public static final int MAX_SIZE = MAX_PAGE_SIZE;
-        public static final List<Integer> ALLOWED_SIZES = QuestionService.ALLOWED_SIZES;
+        public static final List<Integer> SUGGESTED_SIZES = QuestionService.SUGGESTED_SIZES;
     }
 }
