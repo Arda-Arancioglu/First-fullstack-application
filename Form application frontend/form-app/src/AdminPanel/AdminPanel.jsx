@@ -742,13 +742,13 @@ function AdminPanel({ onLogout, isMainTab }) {
                                                 value={tempUserFilters.id_operator || 'eq'}
                                                 onChange={(e) => {
                                                     const operator = e.target.value;
-                                                    const currentValue = tempUserFilters[Object.keys(tempUserFilters).find(key => key.startsWith('id_'))] || '';
+                                                    const currentValue = tempUserFilters[Object.keys(tempUserFilters).find(key => key.startsWith('id_') && key !== 'id_operator')] || '';
                                                     // Remove old id filter
                                                     const newFilters = { ...tempUserFilters };
                                                     Object.keys(newFilters).forEach(key => {
                                                         if (key.startsWith('id_')) delete newFilters[key];
                                                     });
-                                                    if (currentValue) {
+                                                    if (currentValue && currentValue.trim() !== '') {
                                                         newFilters[`id_${operator}`] = currentValue;
                                                     }
                                                     newFilters.id_operator = operator;
@@ -767,7 +767,7 @@ function AdminPanel({ onLogout, isMainTab }) {
                                             <input
                                                 type="text"
                                                 className="filter-input"
-                                                placeholder="Enter ID..."
+                                                placeholder={`Enter ID ${tempUserFilters.id_operator === 'in' || tempUserFilters.id_operator === 'not_in' ? '(comma separated: 1,2,3)' : '...'}`}
                                                 value={tempUserFilters[Object.keys(tempUserFilters).find(key => key.startsWith('id_') && key !== 'id_operator')] || ''}
                                                 onChange={(e) => {
                                                     const operator = tempUserFilters.id_operator || 'eq';
@@ -786,13 +786,13 @@ function AdminPanel({ onLogout, isMainTab }) {
                                                 value={tempUserFilters.username_operator || 'contains'}
                                                 onChange={(e) => {
                                                     const operator = e.target.value;
-                                                    const currentValue = tempUserFilters[Object.keys(tempUserFilters).find(key => key.startsWith('username_'))] || '';
+                                                    const currentValue = tempUserFilters[Object.keys(tempUserFilters).find(key => key.startsWith('username_') && key !== 'username_operator')] || '';
                                                     // Remove old username filter
                                                     const newFilters = { ...tempUserFilters };
                                                     Object.keys(newFilters).forEach(key => {
                                                         if (key.startsWith('username_')) delete newFilters[key];
                                                     });
-                                                    if (currentValue) {
+                                                    if (currentValue && currentValue.trim() !== '') {
                                                         newFilters[`username_${operator}`] = currentValue;
                                                     }
                                                     newFilters.username_operator = operator;
@@ -809,7 +809,7 @@ function AdminPanel({ onLogout, isMainTab }) {
                                             <input
                                                 type="text"
                                                 className="filter-input"
-                                                placeholder="Enter username..."
+                                                placeholder={`Enter username${tempUserFilters.username_operator === 'starts_with' ? ' (start)' : tempUserFilters.username_operator === 'ends_with' ? ' (end)' : ''}...`}
                                                 value={tempUserFilters[Object.keys(tempUserFilters).find(key => key.startsWith('username_') && key !== 'username_operator')] || ''}
                                                 onChange={(e) => {
                                                     const operator = tempUserFilters.username_operator || 'contains';
@@ -828,13 +828,13 @@ function AdminPanel({ onLogout, isMainTab }) {
                                                 value={tempUserFilters.roles_operator || 'contains'}
                                                 onChange={(e) => {
                                                     const operator = e.target.value;
-                                                    const currentValue = tempUserFilters[Object.keys(tempUserFilters).find(key => key.startsWith('roles_'))] || '';
+                                                    const currentValue = tempUserFilters[Object.keys(tempUserFilters).find(key => key.startsWith('roles_') && key !== 'roles_operator')] || '';
                                                     // Remove old roles filter
                                                     const newFilters = { ...tempUserFilters };
                                                     Object.keys(newFilters).forEach(key => {
                                                         if (key.startsWith('roles_')) delete newFilters[key];
                                                     });
-                                                    if (currentValue) {
+                                                    if (currentValue && currentValue.trim() !== '') {
                                                         newFilters[`roles_${operator}`] = currentValue;
                                                     }
                                                     newFilters.roles_operator = operator;
@@ -1008,13 +1008,13 @@ function AdminPanel({ onLogout, isMainTab }) {
                                                 value={tempFormFilters.id_operator || 'eq'}
                                                 onChange={(e) => {
                                                     const operator = e.target.value;
-                                                    const currentValue = tempFormFilters[Object.keys(tempFormFilters).find(key => key.startsWith('id_'))] || '';
+                                                    const currentValue = tempFormFilters[Object.keys(tempFormFilters).find(key => key.startsWith('id_') && key !== 'id_operator')] || '';
                                                     // Remove old id filter
                                                     const newFilters = { ...tempFormFilters };
                                                     Object.keys(newFilters).forEach(key => {
                                                         if (key.startsWith('id_')) delete newFilters[key];
                                                     });
-                                                    if (currentValue) {
+                                                    if (currentValue && currentValue.trim() !== '') {
                                                         newFilters[`id_${operator}`] = currentValue;
                                                     }
                                                     newFilters.id_operator = operator;
@@ -1033,7 +1033,7 @@ function AdminPanel({ onLogout, isMainTab }) {
                                             <input
                                                 type="text"
                                                 className="filter-input"
-                                                placeholder="Enter ID..."
+                                                placeholder={`Enter ID ${tempFormFilters.id_operator === 'in' || tempFormFilters.id_operator === 'not_in' ? '(comma separated: 1,2,3)' : '...'}`}
                                                 value={tempFormFilters[Object.keys(tempFormFilters).find(key => key.startsWith('id_') && key !== 'id_operator')] || ''}
                                                 onChange={(e) => {
                                                     const operator = tempFormFilters.id_operator || 'eq';
@@ -1052,13 +1052,13 @@ function AdminPanel({ onLogout, isMainTab }) {
                                                 value={tempFormFilters.title_operator || 'contains'}
                                                 onChange={(e) => {
                                                     const operator = e.target.value;
-                                                    const currentValue = tempFormFilters[Object.keys(tempFormFilters).find(key => key.startsWith('title_'))] || '';
+                                                    const currentValue = tempFormFilters[Object.keys(tempFormFilters).find(key => key.startsWith('title_') && key !== 'title_operator')] || '';
                                                     // Remove old title filter
                                                     const newFilters = { ...tempFormFilters };
                                                     Object.keys(newFilters).forEach(key => {
                                                         if (key.startsWith('title_')) delete newFilters[key];
                                                     });
-                                                    if (currentValue) {
+                                                    if (currentValue && currentValue.trim() !== '') {
                                                         newFilters[`title_${operator}`] = currentValue;
                                                     }
                                                     newFilters.title_operator = operator;
@@ -1075,7 +1075,7 @@ function AdminPanel({ onLogout, isMainTab }) {
                                             <input
                                                 type="text"
                                                 className="filter-input"
-                                                placeholder="Enter title..."
+                                                placeholder={`Enter title${tempFormFilters.title_operator === 'starts_with' ? ' (start)' : tempFormFilters.title_operator === 'ends_with' ? ' (end)' : ''}...`}
                                                 value={tempFormFilters[Object.keys(tempFormFilters).find(key => key.startsWith('title_') && key !== 'title_operator')] || ''}
                                                 onChange={(e) => {
                                                     const operator = tempFormFilters.title_operator || 'contains';
@@ -1094,13 +1094,13 @@ function AdminPanel({ onLogout, isMainTab }) {
                                                 value={tempFormFilters.description_operator || 'contains'}
                                                 onChange={(e) => {
                                                     const operator = e.target.value;
-                                                    const currentValue = tempFormFilters[Object.keys(tempFormFilters).find(key => key.startsWith('description_'))] || '';
+                                                    const currentValue = tempFormFilters[Object.keys(tempFormFilters).find(key => key.startsWith('description_') && key !== 'description_operator')] || '';
                                                     // Remove old description filter
                                                     const newFilters = { ...tempFormFilters };
                                                     Object.keys(newFilters).forEach(key => {
                                                         if (key.startsWith('description_')) delete newFilters[key];
                                                     });
-                                                    if (currentValue) {
+                                                    if (currentValue && currentValue.trim() !== '') {
                                                         newFilters[`description_${operator}`] = currentValue;
                                                     }
                                                     newFilters.description_operator = operator;
@@ -1117,7 +1117,7 @@ function AdminPanel({ onLogout, isMainTab }) {
                                             <input
                                                 type="text"
                                                 className="filter-input"
-                                                placeholder="Enter description..."
+                                                placeholder={`Enter description${tempFormFilters.description_operator === 'starts_with' ? ' (start)' : tempFormFilters.description_operator === 'ends_with' ? ' (end)' : ''}...`}
                                                 value={tempFormFilters[Object.keys(tempFormFilters).find(key => key.startsWith('description_') && key !== 'description_operator')] || ''}
                                                 onChange={(e) => {
                                                     const operator = tempFormFilters.description_operator || 'contains';

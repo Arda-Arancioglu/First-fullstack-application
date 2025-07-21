@@ -42,9 +42,21 @@ public class GenericSpecification {
 
         switch (operator) {
             case "eq":
+                if ("roles".equals(field)) {
+                    // Join roles and compare the name to the value (should be ERole)
+                    Join<Object, Role> rolesJoin = root.join("roles", JoinType.INNER);
+                    ERole roleEnum = ERole.valueOf(value.toString());
+                    return cb.equal(rolesJoin.get("name"), roleEnum);
+                }
                 return cb.equal(path, convertValue(value, path.getJavaType()));
             case "neq":
+                if ("roles".equals(field)) {
+                    Join<Object, Role> rolesJoin = root.join("roles", JoinType.INNER);
+                    ERole roleEnum = ERole.valueOf(value.toString());
+                    return cb.notEqual(rolesJoin.get("name"), roleEnum);
+                }
                 return cb.notEqual(path, convertValue(value, path.getJavaType()));
+
             case "contains":
                 // Special handling for roles field
                 if ("roles".equals(field)) {
@@ -132,14 +144,14 @@ public class GenericSpecification {
             case "is_not_null":
                 return cb.isNotNull(path);
             case "gt":
-                return cb.greaterThan(path.as(Comparable.class), (Comparable) convertValue(value, path.getJavaType()));
+                return cb.greaterThan(path.as((Class) path.getJavaType()), (Comparable) convertValue(value, path.getJavaType()));
             case "gte":
-                return cb.greaterThanOrEqualTo(path.as(Comparable.class), (Comparable) convertValue(value, path.getJavaType()));
+                return cb.greaterThanOrEqualTo(path.as((Class) path.getJavaType()), (Comparable) convertValue(value, path.getJavaType()));
             case "lt":
-                return cb.lessThan(path.as(Comparable.class), (Comparable) convertValue(value, path.getJavaType()));
+                return cb.lessThan(path.as((Class) path.getJavaType()), (Comparable) convertValue(value, path.getJavaType()));
             case "lte":
-                return cb.lessThanOrEqualTo(path.as(Comparable.class), (Comparable) convertValue(value, path.getJavaType()));
-            case "between":
+                return cb.lessThanOrEqualTo(path.as((Class) path.getJavaType()), (Comparable) convertValue(value, path.getJavaType()));
+           case "between":
                 Object value2 = criteria.getValue2();
                 return cb.between(path.as(Comparable.class),
                         (Comparable) convertValue(value, path.getJavaType()),

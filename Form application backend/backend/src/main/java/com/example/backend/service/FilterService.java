@@ -8,49 +8,41 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * Service for handling filtering, sorting, and pagination
- */
 @Service
 public class FilterService {
 
-    private static final int DEFAULT_PAGE_SIZE = 10;
-    private static final int MAX_PAGE_SIZE = 100;
-    private static final List<Integer> ALLOWED_PAGE_SIZES = Arrays.asList(5, 10, 15, 20, 25, 50, 100);
-
-    /**
-     * Parse filter parameters from request parameters
-     * Expected format: field_operation=value
-     * Examples:
-     * - username_eq=john
-     * - id_gt=5
-     * - title_contains=test
-     * - created_between=2023-01-01,2023-12-31
-     */
+    // Reserved parameter names that should not be treated as filters
+    private static final List<String> RESERVED_PARAMS = Arrays.asList(
+            "page", "size", "sortBy", "sortDirection"
+    );
+    // Java
     public List<FilterCriteria> parseFilters(Map<String, String> params) {
-        System.out.println("Parsing filters from params: " + params); // Debug line
+        List<FilterCriteria> filters = new ArrayList<>();
 
-        List<FilterCriteria> filters = params.entrySet().stream()
-                .filter(entry -> !isReservedParam(entry.getKey()))
-                .map(this::parseFilterParam)
-                .filter(criteria -> criteria != null)
-                .collect(Collectors.toList());
+        for (Map.Entry<String, String> param : params.entrySet()) {
+            // Skip reserved params and keys ending with _operator
+            if (!RESERVED_PARAMS.contains(param.getKey()) && !param.getKey().endsWith("_operator")) {
+                FilterCriteria criteria = parseFilterParam(param);
+                if (criteria != null) {
+                    filters.add(criteria);
+                }
+            }
+        }
 
-        System.out.println("Parsed filters: " + filters); // Debug line
+        System.out.println("Parsed " + filters.size() + " filters from request parameters");
         return filters;
     }
 
-    /**
-     * Parse single filter parameter
-     */
     private FilterCriteria parseFilterParam(Map.Entry<String, String> param) {
         String key = param.getKey();
         String value = param.getValue();
@@ -62,15 +54,39 @@ public class FilterService {
             return null;
         }
 
-        // Split field and operation
-        int lastUnderscore = key.lastIndexOf('_');
-        if (lastUnderscore == -1) {
-            System.out.println("Invalid format for key: " + key); // Debug line
-            return null; // Invalid format
-        }
+        // Handle multi-word operations first
+        String field;
+        String operation;
 
-        String field = key.substring(0, lastUnderscore);
-        String operation = key.substring(lastUnderscore + 1);
+        if (key.endsWith("_starts_with")) {
+            field = key.substring(0, key.length() - "_starts_with".length());
+            operation = "starts_with";
+        } else if (key.endsWith("_ends_with")) {
+            field = key.substring(0, key.length() - "_ends_with".length());
+            operation = "ends_with";
+        } else if (key.endsWith("_not_contains")) {
+            field = key.substring(0, key.length() - "_not_contains".length());
+            operation = "not_contains";
+        } else if (key.endsWith("_is_null")) {
+            field = key.substring(0, key.length() - "_is_null".length());
+            operation = "is_null";
+        } else if (key.endsWith("_is_not_null")) {
+            field = key.substring(0, key.length() - "_is_not_null".length());
+            operation = "is_not_null";
+        } else if (key.endsWith("_not_in")) {
+            field = key.substring(0, key.length() - "_not_in".length());
+            operation = "not_in";
+        } else {
+            // Handle single-word operations
+            int lastUnderscore = key.lastIndexOf('_');
+            if (lastUnderscore == -1) {
+                System.out.println("Invalid format for key: " + key); // Debug line
+                return null; // Invalid format
+            }
+
+            field = key.substring(0, lastUnderscore);
+            operation = key.substring(lastUnderscore + 1);
+        }
 
         System.out.println("Field: " + field + ", Operation: " + operation); // Debug line
 
@@ -92,113 +108,39 @@ public class FilterService {
         return new FilterCriteria(field, operation, value);
     }
 
-    /**
-     * Build JPA Specification from filter criteria
-     */
-    public <T> Specification<T> buildSpecification(List<FilterCriteria> filters) {
-        System.out.println("Building specification for filters: " + filters); // Debug line
-
-        if (filters == null || filters.isEmpty()) {
-            System.out.println("No filters provided, returning null specification"); // Debug line
-            return null;
-        }
-
-        // Fixed: Start with the first filter
-        Specification<T> spec = GenericSpecification.of(filters.get(0));
-
-        // Combine additional filters with AND
-        for (int i = 1; i < filters.size(); i++) {
-            spec = spec.and(GenericSpecification.of(filters.get(i)));
-        }
-
-        return spec;
-    }
-
-    /**
-     * Create pageable object with validation
-     */
     public Pageable createPageable(Integer page, Integer size, String sortBy, String sortDirection) {
-        // Validate page
-        int validPage = page != null && page >= 0 ? page : 0;
+        Sort.Direction direction = "desc".equalsIgnoreCase(sortDirection)
+                ? Sort.Direction.DESC
+                : Sort.Direction.ASC;
 
-        // Validate size
-        int validSize = validatePageSize(size);
-
-        // Validate sort direction
-        Sort.Direction direction = Sort.Direction.ASC;
-        if (sortDirection != null && "desc".equalsIgnoreCase(sortDirection)) {
-            direction = Sort.Direction.DESC;
-        }
-
-        // Create sort object
-        Sort sort = Sort.by(direction, sortBy != null ? sortBy : "id");
-
-        return PageRequest.of(validPage, validSize, sort);
+        Sort sort = Sort.by(direction, sortBy);
+        return PageRequest.of(page, size, sort);
     }
 
-    /**
-     * Get filtered and paginated results with proper error handling
-     */
     public <T> Page<T> getFilteredResults(
             JpaSpecificationExecutor<T> repository,
             List<FilterCriteria> filters,
             Pageable pageable) {
 
         try {
-            Specification<T> spec = buildSpecification(filters);
-
-            // Always use findAll with specification and pageable
-            if (spec != null) {
-                return repository.findAll(spec, pageable);
-            } else {
-                // Use null specification (which means no filtering)
-                return repository.findAll(Specification.where(null), pageable);
+            if (filters == null || filters.isEmpty()) {
+                System.out.println("No filters provided, returning all results"); // Debug line
+                return ((JpaRepository<T, ?>) repository).findAll(pageable);
             }
+
+            Specification<T> spec = null;
+            for (FilterCriteria filter : filters) {
+                Specification<T> newSpec = GenericSpecification.of(filter);
+                spec = (spec == null) ? newSpec : spec.and(newSpec);
+            }
+
+            System.out.println("Executing query with " + filters.size() + " filters"); // Debug line
+            return repository.findAll(spec, pageable);
         } catch (Exception e) {
             System.err.println("Error in getFilteredResults: " + e.getMessage());
             e.printStackTrace();
-            // Return fallback - all results with pagination only
-            return repository.findAll(Specification.where(null), pageable);
+            // Return empty page on error
+            return ((JpaRepository<T, ?>) repository).findAll(PageRequest.of(0, 10));
         }
-    }
-
-    /**
-     * Validate page size
-     */
-    private int validatePageSize(Integer size) {
-        if (size == null || size <= 0) {
-            return DEFAULT_PAGE_SIZE;
-        }
-
-        if (size > MAX_PAGE_SIZE) {
-            return MAX_PAGE_SIZE;
-        }
-
-        // Return closest allowed size
-        return ALLOWED_PAGE_SIZES.stream()
-                .min((a, b) -> Math.abs(a - size) - Math.abs(b - size))
-                .orElse(DEFAULT_PAGE_SIZE);
-    }
-
-    /**
-     * Check if parameter is reserved (not a filter)
-     */
-    private boolean isReservedParam(String paramName) {
-        // All parameters that should not be treated as filters
-        return Arrays.asList("page", "size", "sortBy", "sortDirection", "sort", "direction").contains(paramName);
-    }
-
-    /**
-     * Configuration class for frontend
-     */
-    public static class FilterConfig {
-        public static final int DEFAULT_SIZE = DEFAULT_PAGE_SIZE;
-        public static final int MAX_SIZE = MAX_PAGE_SIZE;
-        public static final List<Integer> ALLOWED_SIZES = ALLOWED_PAGE_SIZES;
-
-        public static final List<String> SUPPORTED_OPERATIONS = Arrays.asList(
-                "eq", "neq", "contains", "not_contains", "starts_with", "ends_with",
-                "is_null", "is_not_null", "gt", "gte", "lt", "lte", "between", "in", "not_in"
-        );
     }
 }
