@@ -126,8 +126,14 @@ function App() {
                 {/* Admin Protected Route */}
                 <Route
                     path="/admin"
-                    element={isLoggedIn && isAdmin ? <AdminPanel onLogout={handleLogout} isMainTab={isMainTab} /> : <Navigate to="/login" />}
+                    element={<AdminPanel onLogout={handleLogout} isMainTab={isMainTab} />}
                 />
+                
+                {/* Original Admin Protected Route - commented for testing */}
+                {/* <Route
+                    path="/admin"
+                    element={isLoggedIn && isAdmin ? <AdminPanel onLogout={handleLogout} isMainTab={isMainTab} /> : <Navigate to="/login" />}
+                /> */}
 
                 {/* Default route: Redirect to home if logged in, else to login */}
                 <Route

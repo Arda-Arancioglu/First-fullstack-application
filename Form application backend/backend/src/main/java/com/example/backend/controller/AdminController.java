@@ -6,13 +6,18 @@ import com.example.backend.model.Question;
 import com.example.backend.model.Answer;
 import com.example.backend.model.Role;
 import com.example.backend.model.ERole;
-import com.example.backend.model.Form; // Import Form
+import com.example.backend.model.Form;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.repository.QuestionRepository;
 import com.example.backend.repository.AnswerRepository;
 import com.example.backend.repository.RoleRepository;
-import com.example.backend.repository.FormRepository; // Import FormRepository
+import com.example.backend.repository.FormRepository;
+import com.example.backend.service.FilterService;
+import com.example.backend.dto.FilterCriteria;
+import com.example.backend.dto.PagedResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -21,13 +26,13 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/admin") // Base path for admin-specific endpoints
-@CrossOrigin(origins = "http://localhost:5173", maxAge = 3600) // Allow CORS from your React app
+@RequestMapping("/api/admin")
+@CrossOrigin(origins = "http://localhost:5173", maxAge = 3600)
 public class AdminController {
 
     @Autowired
@@ -45,26 +50,41 @@ public class AdminController {
     @Autowired
     PasswordEncoder passwordEncoder;
 
-    @Autowired // Autowire FormRepository
+    @Autowired
     FormRepository formRepository;
 
-    // --- USER MANAGEMENT ---
+    @Autowired
+    FilterService filterService;
+
+    // --- USER MANAGEMENT WITH FILTERING ---
 
     @GetMapping("/users")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<User>> getAllUsers() {
-        List<User> users = userRepository.findAll();
-        return ResponseEntity.ok(users);
+    public ResponseEntity<PagedResponse<User>> getAllUsers(
+            @RequestParam Map<String, String> params,
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "10") Integer size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDirection) {
+
+        // Parse filters from request parameters
+        List<FilterCriteria> filters = filterService.parseFilters(params);
+
+        // Create pageable with sorting
+        Pageable pageable = filterService.createPageable(page, size, sortBy, sortDirection);
+
+        // Get filtered results
+        Page<User> userPage = filterService.getFilteredResults(userRepository, filters, pageable);
+
+        return ResponseEntity.ok(new PagedResponse<>(userPage));
     }
 
     @PostMapping("/users")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<User> createUser(@RequestBody User user) {
         if (userRepository.findByUsername(user.getUsername()).isPresent()) {
-            // Using ResponseEntity with a specific message for better client handling
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null); // Or a custom error object
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
         }
-        // NEW: Add check for password being null or empty
         if (user.getPassword() == null || user.getPassword().isEmpty()) {
             return new ResponseEntity("Password cannot be empty!", HttpStatus.BAD_REQUEST);
         }
@@ -118,7 +138,7 @@ public class AdminController {
 
                     User updatedUser = userRepository.save(user);
                     return ResponseEntity.ok(updatedUser);
-                }).orElse(new ResponseEntity<User>(HttpStatus.NOT_FOUND)); // FIX: Explicitly type ResponseEntity
+                }).orElse(new ResponseEntity<User>(HttpStatus.NOT_FOUND));
     }
 
     @DeleteMapping("/users/{id}")
@@ -131,13 +151,22 @@ public class AdminController {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 
-    // --- FORM MANAGEMENT (Admin specific CRUD) ---
+    // --- FORM MANAGEMENT WITH FILTERING ---
 
     @GetMapping("/forms")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<Form>> getAllFormsAdmin() { // Renamed to avoid conflict with FormController
-        List<Form> forms = formRepository.findAll();
-        return ResponseEntity.ok(forms);
+    public ResponseEntity<PagedResponse<Form>> getAllFormsAdmin(
+            @RequestParam Map<String, String> params,
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "10") Integer size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDirection) {
+
+        List<FilterCriteria> filters = filterService.parseFilters(params);
+        Pageable pageable = filterService.createPageable(page, size, sortBy, sortDirection);
+        Page<Form> formPage = filterService.getFilteredResults(formRepository, filters, pageable);
+
+        return ResponseEntity.ok(new PagedResponse<>(formPage));
     }
 
     @PostMapping("/forms")
@@ -160,10 +189,9 @@ public class AdminController {
                 .map(form -> {
                     form.setTitle(formDetails.getTitle());
                     form.setDescription(formDetails.getDescription());
-                    // Note: Questions are managed via separate endpoints for a specific form
                     Form updatedForm = formRepository.save(form);
                     return ResponseEntity.ok(updatedForm);
-                }).orElse(new ResponseEntity<Form>(HttpStatus.NOT_FOUND)); // FIX: Explicitly type ResponseEntity
+                }).orElse(new ResponseEntity<Form>(HttpStatus.NOT_FOUND));
     }
 
     @DeleteMapping("/forms/{id}")
@@ -176,17 +204,31 @@ public class AdminController {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 
-    // --- QUESTION MANAGEMENT (UPDATED TO BE FORM-SPECIFIC) ---
+    // --- QUESTION MANAGEMENT WITH FILTERING ---
 
     @GetMapping("/forms/{formId}/questions")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<Question>> getQuestionsByFormId(@PathVariable Long formId) {
+    public ResponseEntity<PagedResponse<Question>> getQuestionsByFormId(
+            @PathVariable Long formId,
+            @RequestParam Map<String, String> params,
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "10") Integer size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDirection) {
+
         Optional<Form> formOptional = formRepository.findById(formId);
         if (formOptional.isEmpty()) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
-        List<Question> questions = questionRepository.findByFormId(formId);
-        return ResponseEntity.ok(questions);
+
+        // Add form filter to existing filters
+        List<FilterCriteria> filters = filterService.parseFilters(params);
+        filters.add(new FilterCriteria("form.id", "eq", formId));
+
+        Pageable pageable = filterService.createPageable(page, size, sortBy, sortDirection);
+        Page<Question> questionPage = filterService.getFilteredResults(questionRepository, filters, pageable);
+
+        return ResponseEntity.ok(new PagedResponse<>(questionPage));
     }
 
     @PostMapping("/forms/{formId}/questions")
@@ -237,19 +279,28 @@ public class AdminController {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 
-    // --- ANSWER MANAGEMENT ---
+    // --- ANSWER MANAGEMENT WITH FILTERING ---
 
     @GetMapping("/answers")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<Answer>> getAllAnswers() {
-        List<Answer> answers = answerRepository.findAll();
-        return ResponseEntity.ok(answers);
+    public ResponseEntity<PagedResponse<Answer>> getAllAnswers(
+            @RequestParam Map<String, String> params,
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "10") Integer size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDirection) {
+
+        List<FilterCriteria> filters = filterService.parseFilters(params);
+        Pageable pageable = filterService.createPageable(page, size, sortBy, sortDirection);
+        Page<Answer> answerPage = filterService.getFilteredResults(answerRepository, filters, pageable);
+
+        return ResponseEntity.ok(new PagedResponse<>(answerPage));
     }
 
     @PostMapping("/answers")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<Answer>> createAnswer(@RequestBody List<Answer> answers) { // Changed to List<Answer>
-        List<Answer> newAnswers = answerRepository.saveAll(answers); // Save all
+    public ResponseEntity<List<Answer>> createAnswer(@RequestBody List<Answer> answers) {
+        List<Answer> newAnswers = answerRepository.saveAll(answers);
         return ResponseEntity.status(HttpStatus.CREATED).body(newAnswers);
     }
 
@@ -259,10 +310,9 @@ public class AdminController {
         return answerRepository.findById(id)
                 .map(answer -> {
                     answer.setResponse(answerDetails.getResponse());
-                    // You might need to handle updating question and user references if they are part of answerDetails
                     Answer updatedAnswer = answerRepository.save(answer);
                     return ResponseEntity.ok(updatedAnswer);
-                }).orElse(new ResponseEntity<Answer>(HttpStatus.NOT_FOUND)); // FIX: Explicitly type ResponseEntity
+                }).orElse(new ResponseEntity<Answer>(HttpStatus.NOT_FOUND));
     }
 
     @DeleteMapping("/answers/{id}")

@@ -104,18 +104,24 @@ export const useSingleTabEnforcer = (onMultipleTabsDetected, onMainTabLost) => {
                 // Another tab is currently active and sending heartbeats
                 if (isMainTab) { // If this tab was previously main, but now isn't
                     console.warn(`Tab ${tabId.current}: Lost main tab status to ${activeTabIdInStorage}.`);
-                    if (onMainTabLost) {
-                        onMainTabLost();
-                    }
+                    // Add a small delay before triggering callbacks to avoid false positives from quick navigation
+                    setTimeout(() => {
+                        if (onMainTabLost) {
+                            onMainTabLost();
+                        }
+                    }, 1000); // 1 second delay
                 }
                 setIsMainTab(false); // This tab is no longer the main tab
                 setAxiosMainTabStatus(false);
                 clearInterval(heartbeatIntervalRef.current);
                 heartbeatIntervalRef.current = null;
                 console.warn(`Tab ${tabId.current}: Another tab (${activeTabIdInStorage}) is active.`);
-                if (onMultipleTabsDetected) {
-                    onMultipleTabsDetected();
-                }
+                // Add delay for multiple tabs detected as well
+                setTimeout(() => {
+                    if (onMultipleTabsDetected) {
+                        onMultipleTabsDetected();
+                    }
+                }, 1000); // 1 second delay
             } else {
                 // No other active tab, or the existing active tab is stale, so this tab can claim/re-claim main status
                 setAsMainTab(); // This will set isMainTab(true) and start/restart heartbeat
