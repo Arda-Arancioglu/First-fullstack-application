@@ -46,7 +46,8 @@ function HomePage({ onLogout }) {
     }, [onLogout]);
 
     const handleGoToForm = (formId) => {
-        navigate(`/forms/${formId}/questions`); // Navigate to the QuestionForm page with formId
+        // Navigate to the QuestionForm page with formId and default pagination parameters
+        navigate(`/forms/${formId}/questions?pageNo=0&questionLimit=5`);
     };
 
     return (

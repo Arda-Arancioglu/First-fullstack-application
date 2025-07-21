@@ -2,10 +2,13 @@
 import React, { useEffect, useState } from "react";
 import axiosInstance from '../services/axios-instance';
 import './QuestionFormStyle.css'; // Import the CSS file
-import { useNavigate, useParams } from 'react-router-dom'; // Import useParams
+import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom'; // Import necessary hooks
 
 const QuestionForm = ({ onLogout }) => {
     const { formId } = useParams(); // Get formId from URL parameters
+    const navigate = useNavigate();
+    const location = useLocation();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [questions, setQuestions] = useState([]);
     const [answers, setAnswers] = useState({});
     const [userExistingAnswers, setUserExistingAnswers] = useState({});
@@ -20,13 +23,6 @@ const QuestionForm = ({ onLogout }) => {
     const [myAnswers, setMyAnswers] = useState([]);
     
     // Pagination states
-    const [currentPage, setCurrentPage] = useState(0); // Changed to 0-based for backend compatibility
-    const [pageSize, setPageSize] = useState(5);
-    const [paginationOptions, setPaginationOptions] = useState({
-        defaultSize: 5,
-        maxSize: 20,
-        allowedSizes: [5, 10, 15, 20]
-    });
     const [paginationData, setPaginationData] = useState({
         totalElements: 0,
         totalPages: 0,
@@ -38,14 +34,36 @@ const QuestionForm = ({ onLogout }) => {
     const [myAnswersLoading, setMyAnswersLoading] = useState(false);
     const [myAnswersError, setMyAnswersError] = useState(null);
 
-    const navigate = useNavigate();
+    // Get pagination values from URL or use defaults
+    const pageNo = parseInt(searchParams.get('pageNo')) || 0;
+    const questionLimit = parseInt(searchParams.get('questionLimit')) || 5;
+
+    // Function to update URL parameters
+    const updateUrlParams = (newParams) => {
+        const updatedParams = new URLSearchParams(searchParams);
+        Object.entries(newParams).forEach(([key, value]) => {
+            if (value !== null && value !== undefined) {
+                updatedParams.set(key, value.toString());
+            }
+        });
+        setSearchParams(updatedParams);
+    };
+
+    // Handle page change
+    const handlePageChange = (newPage) => {
+        updateUrlParams({ pageNo: newPage });
+    };
+
+    // Handle page size change
+    const handlePageSizeChange = (newSize) => {
+        updateUrlParams({ questionLimit: newSize, pageNo: 0 }); // Reset to first page when changing page size
+    };
 
     const fetchPaginationOptions = async () => {
         try {
             const response = await axiosInstance.get(`/forms/${formId}/questions/pagination-options`);
             console.log('Pagination options:', response.data);
-            setPaginationOptions(response.data);
-            setPageSize(response.data.defaultSize);
+            // Remove setPaginationOptions and setPageSize as we're using URL parameters now
         } catch (err) {
             console.error("Error fetching pagination options:", err);
         }
@@ -65,9 +83,9 @@ const QuestionForm = ({ onLogout }) => {
             setLoading(true);
             setValidationErrors({});
 
-            // Fetch paginated questions
+            // Fetch paginated questions with URL parameters
             const questionsRes = await axiosInstance.get(
-                `/forms/${formId}/questions/paginated?page=${currentPage}&size=${pageSize}`
+                `/forms/${formId}/questions/paginated?pageNo=${pageNo}&questionLimit=${questionLimit}`
             );
             
             const questionsList = questionsRes.data.content;
@@ -129,13 +147,12 @@ const QuestionForm = ({ onLogout }) => {
         }
     }, [formId]);
 
-    // Trigger fetchAllData when component mounts or pagination changes
+    // Trigger fetchAllData when URL parameters change
     useEffect(() => {
-        console.log('Effect triggered with pageSize:', pageSize, 'currentPage:', currentPage);
         if (formId) {
             fetchAllData();
         }
-    }, [formId, currentPage, pageSize]);
+    }, [formId, pageNo, questionLimit]);
 
     // Fetch user's answers for sidebar when sidebar is opened
     useEffect(() => {
@@ -338,17 +355,16 @@ const QuestionForm = ({ onLogout }) => {
                         <div className="questions-per-page-selector">
                             <label>Questions per page: </label>
                             <select 
-                                value={pageSize} 
+                                value={questionLimit}
                                 onChange={(e) => {
                                     e.preventDefault();
-                                    const newSize = parseInt(e.target.value, 10);
-                                    if (newSize && newSize > 0) {
-                                        setCurrentPage(0); // Reset to first page when changing page size
-                                        setPageSize(newSize); // This will trigger the useEffect
+                                    const newLimit = parseInt(e.target.value, 10);
+                                    if (newLimit && newLimit > 0) {
+                                        handlePageSizeChange(newLimit);
                                     }
                                 }}
                             >
-                                {paginationOptions.allowedSizes.map(size => (
+                                {[5, 10, 15, 20, 25].map(size => (
                                     <option key={size} value={size}>{size}</option>
                                 ))}
                             </select>
@@ -429,20 +445,20 @@ const QuestionForm = ({ onLogout }) => {
                         <div className="pagination-controls">
                             <button
                                 type="button"
-                                onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
-                                disabled={currentPage === 0}
+                                onClick={() => handlePageChange(Math.max(0, pageNo - 1))}
+                                disabled={pageNo === 0}
                                 className="pagination-button"
                             >
                                 Previous
                             </button>
                             <span className="page-info">
-                                Page {currentPage + 1} of {paginationData.totalPages}
+                                Page {pageNo + 1} of {paginationData.totalPages}
                                 ({paginationData.totalElements} total items)
                             </span>
                             <button
                                 type="button"
-                                onClick={() => setCurrentPage(prev => prev + 1)}
-                                disabled={currentPage >= paginationData.totalPages - 1}
+                                onClick={() => handlePageChange(pageNo + 1)}
+                                disabled={pageNo >= paginationData.totalPages - 1}
                                 className="pagination-button"
                             >
                                 Next
