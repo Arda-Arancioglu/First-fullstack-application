@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors; // Added for Java 8 compatibility
+import java.util.stream.Collectors;
 
 /**
  * Service for handling filtering, sorting, and pagination
@@ -36,11 +36,16 @@ public class FilterService {
      * - created_between=2023-01-01,2023-12-31
      */
     public List<FilterCriteria> parseFilters(Map<String, String> params) {
-        return params.entrySet().stream()
+        System.out.println("Parsing filters from params: " + params); // Debug line
+
+        List<FilterCriteria> filters = params.entrySet().stream()
                 .filter(entry -> !isReservedParam(entry.getKey()))
                 .map(this::parseFilterParam)
                 .filter(criteria -> criteria != null)
-                .collect(Collectors.toList()); // Changed from .toList() for Java 8 compatibility
+                .collect(Collectors.toList());
+
+        System.out.println("Parsed filters: " + filters); // Debug line
+        return filters;
     }
 
     /**
@@ -50,18 +55,24 @@ public class FilterService {
         String key = param.getKey();
         String value = param.getValue();
 
+        System.out.println("Parsing filter param: " + key + " = " + value); // Debug line
+
         if (value == null || value.trim().isEmpty()) {
+            System.out.println("Skipping empty value for key: " + key); // Debug line
             return null;
         }
 
         // Split field and operation
         int lastUnderscore = key.lastIndexOf('_');
         if (lastUnderscore == -1) {
+            System.out.println("Invalid format for key: " + key); // Debug line
             return null; // Invalid format
         }
 
         String field = key.substring(0, lastUnderscore);
         String operation = key.substring(lastUnderscore + 1);
+
+        System.out.println("Field: " + field + ", Operation: " + operation); // Debug line
 
         // Handle BETWEEN operation (value1,value2)
         if ("between".equals(operation) && value.contains(",")) {
@@ -74,7 +85,7 @@ public class FilterService {
             List<String> values = Arrays.asList(value.split(","))
                     .stream()
                     .map(String::trim)
-                    .collect(Collectors.toList()); // Changed from .toList() for Java 8 compatibility
+                    .collect(Collectors.toList());
             return new FilterCriteria(field, operation, values);
         }
 
@@ -85,12 +96,17 @@ public class FilterService {
      * Build JPA Specification from filter criteria
      */
     public <T> Specification<T> buildSpecification(List<FilterCriteria> filters) {
+        System.out.println("Building specification for filters: " + filters); // Debug line
+
         if (filters == null || filters.isEmpty()) {
+            System.out.println("No filters provided, returning null specification"); // Debug line
             return null;
         }
 
+        // Fixed: Start with the first filter
         Specification<T> spec = GenericSpecification.of(filters.get(0));
 
+        // Combine additional filters with AND
         for (int i = 1; i < filters.size(); i++) {
             spec = spec.and(GenericSpecification.of(filters.get(i)));
         }
@@ -121,19 +137,27 @@ public class FilterService {
     }
 
     /**
-     * Get filtered and paginated results
+     * Get filtered and paginated results with proper error handling
      */
     public <T> Page<T> getFilteredResults(
             JpaSpecificationExecutor<T> repository,
             List<FilterCriteria> filters,
             Pageable pageable) {
 
-        Specification<T> spec = buildSpecification(filters);
+        try {
+            Specification<T> spec = buildSpecification(filters);
 
-        // Always use findAll with specification - use Specification.where(null) for no filters
-        if (spec != null) {
-            return repository.findAll(spec, pageable);
-        } else {
+            // Always use findAll with specification and pageable
+            if (spec != null) {
+                return repository.findAll(spec, pageable);
+            } else {
+                // Use null specification (which means no filtering)
+                return repository.findAll(Specification.where(null), pageable);
+            }
+        } catch (Exception e) {
+            System.err.println("Error in getFilteredResults: " + e.getMessage());
+            e.printStackTrace();
+            // Return fallback - all results with pagination only
             return repository.findAll(Specification.where(null), pageable);
         }
     }
@@ -160,7 +184,8 @@ public class FilterService {
      * Check if parameter is reserved (not a filter)
      */
     private boolean isReservedParam(String paramName) {
-        return Arrays.asList("page", "size", "sort", "direction").contains(paramName);
+        // All parameters that should not be treated as filters
+        return Arrays.asList("page", "size", "sortBy", "sortDirection", "sort", "direction").contains(paramName);
     }
 
     /**

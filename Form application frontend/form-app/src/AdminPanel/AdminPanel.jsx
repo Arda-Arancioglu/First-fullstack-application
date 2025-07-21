@@ -97,14 +97,58 @@ function AdminPanel({ onLogout, isMainTab }) {
         return params.toString();
     };
 
+    // Load filters from URL on component mount
+    useEffect(() => {
+        const section = searchParams.get('section');
+        
+        // Only load from URL if there are actual parameters
+        if (!section) {
+            // No URL parameters, stay on dashboard
+            return;
+        }
+        
+        const sortBy = searchParams.get('sortBy') || 'id';
+        const sortDirection = searchParams.get('sortDirection') || 'asc';
+        const page = parseInt(searchParams.get('page') || '0');
+        const size = parseInt(searchParams.get('size') || '10');
+        
+        // Extract filters from URL
+        const urlFilters = {};
+        for (let [key, value] of searchParams.entries()) {
+            if (!['section', 'sortBy', 'sortDirection', 'page', 'size'].includes(key)) {
+                urlFilters[key] = value;
+            }
+        }
+        
+        if (section === 'users') {
+            setActiveSection('userManagement');
+            setUserFilters(urlFilters);
+            setTempUserFilters(urlFilters);
+            setUserSort({ sortBy, sortDirection });
+            setTempUserSort({ sortBy, sortDirection });
+            setUsersPage(page);
+            setUsersSize(size);
+        } else if (section === 'forms') {
+            setActiveSection('formManagement');
+            setFormFilters(urlFilters);
+            setTempFormFilters(urlFilters);
+            setFormSort({ sortBy, sortDirection });
+            setTempFormSort({ sortBy, sortDirection });
+            setFormsPage(page);
+            setFormsSize(size);
+        }
+    }, []); // Only run on mount
+
     // Handle user pagination changes
     const handleUsersPageChange = (newPage) => {
         setUsersPage(newPage);
+        updateURL('users', userFilters, userSort, newPage, usersSize);
     };
 
     const handleUsersSizeChange = (newSize) => {
         setUsersSize(newSize);
         setUsersPage(0); // Reset to first page when changing page size
+        updateURL('users', userFilters, userSort, 0, newSize);
     };
 
     // Temporary handlers for backward compatibility
@@ -121,11 +165,13 @@ function AdminPanel({ onLogout, isMainTab }) {
     // Handle form pagination changes
     const handleFormsPageChange = (newPage) => {
         setFormsPage(newPage);
+        updateURL('forms', formFilters, formSort, newPage, formsSize);
     };
 
     const handleFormsSizeChange = (newSize) => {
         setFormsSize(newSize);
         setFormsPage(0); // Reset to first page when changing page size
+        updateURL('forms', formFilters, formSort, 0, newSize);
     };
 
     // Handle filter changes (temporary - not applied immediately)
@@ -152,17 +198,46 @@ function AdminPanel({ onLogout, isMainTab }) {
         setTempFormSort({ sortBy, sortDirection });
     };
 
+    // Update URL with current state
+    const updateURL = (section, filters, sort, page, size) => {
+        const params = new URLSearchParams();
+        
+        // Add section identifier
+        params.set('section', section);
+        
+        // Add filters to URL
+        Object.keys(filters).forEach(key => {
+            if (filters[key] && !key.endsWith('_operator')) {
+                params.set(key, filters[key]);
+            }
+        });
+        
+        // Add sorting
+        if (sort.sortBy) {
+            params.set('sortBy', sort.sortBy);
+            params.set('sortDirection', sort.sortDirection);
+        }
+        
+        // Add pagination
+        if (page > 0) params.set('page', page.toString());
+        if (size !== 10) params.set('size', size.toString());
+        
+        setSearchParams(params);
+    };
+
     // Apply filters and sorting
     const applyUserFilters = () => {
         setUserFilters(tempUserFilters);
         setUserSort(tempUserSort);
         setUsersPage(0); // Reset to first page when applying filters
+        updateURL('users', tempUserFilters, tempUserSort, 0, usersSize);
     };
 
     const applyFormFilters = () => {
         setFormFilters(tempFormFilters);
         setFormSort(tempFormSort);
         setFormsPage(0); // Reset to first page when applying filters
+        updateURL('forms', tempFormFilters, tempFormSort, 0, formsSize);
     };
 
     // Clear filters
@@ -172,6 +247,7 @@ function AdminPanel({ onLogout, isMainTab }) {
         setTempUserSort({ sortBy: 'id', sortDirection: 'asc' });
         setUserSort({ sortBy: 'id', sortDirection: 'asc' });
         setUsersPage(0);
+        updateURL('users', {}, { sortBy: 'id', sortDirection: 'asc' }, 0, usersSize);
     };
 
     const clearFormFilters = () => {
@@ -180,6 +256,7 @@ function AdminPanel({ onLogout, isMainTab }) {
         setTempFormSort({ sortBy: 'id', sortDirection: 'asc' });
         setFormSort({ sortBy: 'id', sortDirection: 'asc' });
         setFormsPage(0);
+        updateURL('forms', {}, { sortBy: 'id', sortDirection: 'asc' }, 0, formsSize);
     };
 
     // Helper functions for section navigation
@@ -187,6 +264,7 @@ function AdminPanel({ onLogout, isMainTab }) {
         console.log('Navigating to User Management');
         setActiveSection('userManagement');
         setIsSidebarOpen(false);
+        updateURL('users', userFilters, userSort, usersPage, usersSize);
     };
 
     const navigateToFormManagement = () => {
@@ -195,16 +273,21 @@ function AdminPanel({ onLogout, isMainTab }) {
         setSelectedFormForQuestions(null);
         setFormQuestions([]);
         setIsSidebarOpen(false);
+        updateURL('forms', formFilters, formSort, formsPage, formsSize);
     };
 
     const navigateToQuestionManagement = () => {
         setActiveSection('questionManagement');
         setIsSidebarOpen(false);
+        // Clear URL params for question management (no filters/pagination)
+        setSearchParams({});
     };
 
     const navigateToDashboard = () => {
         setActiveSection('dashboard');
         setIsSidebarOpen(false);
+        // Clear URL params for dashboard
+        setSearchParams({});
     };
 
     // --- Pagination States for Users ---
@@ -650,47 +733,6 @@ function AdminPanel({ onLogout, isMainTab }) {
                                 <h4 className="filter-section-title">🔍 Advanced Filters & Sorting</h4>
                                 
                                 <div className="filter-grid">
-                                    {/* Username Filters */}
-                                    <div className="filter-group">
-                                        <label className="filter-label">Username</label>
-                                        <div className="filter-input-group">
-                                            <select 
-                                                className="filter-operator-select"
-                                                value={tempUserFilters.username_operator || 'contains'}
-                                                onChange={(e) => {
-                                                    const operator = e.target.value;
-                                                    const currentValue = tempUserFilters[Object.keys(tempUserFilters).find(key => key.startsWith('username_'))] || '';
-                                                    // Remove old username filter
-                                                    const newFilters = { ...tempUserFilters };
-                                                    Object.keys(newFilters).forEach(key => {
-                                                        if (key.startsWith('username_')) delete newFilters[key];
-                                                    });
-                                                    if (currentValue) {
-                                                        newFilters[`username_${operator}`] = currentValue;
-                                                    }
-                                                    newFilters.username_operator = operator;
-                                                    setTempUserFilters(newFilters);
-                                                }}
-                                            >
-                                                <option value="eq">Equals</option>
-                                                <option value="contains">Contains</option>
-                                                <option value="starts_with">Starts with</option>
-                                                <option value="ends_with">Ends with</option>
-                                                <option value="not_contains">Not contains</option>
-                                            </select>
-                                            <input
-                                                type="text"
-                                                className="filter-input"
-                                                placeholder="Enter username..."
-                                                value={tempUserFilters[Object.keys(tempUserFilters).find(key => key.startsWith('username_') && key !== 'username_operator')] || ''}
-                                                onChange={(e) => {
-                                                    const operator = tempUserFilters.username_operator || 'contains';
-                                                    handleUserFilterChange(`username_${operator}`, e.target.value);
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-
                                     {/* ID Filters */}
                                     <div className="filter-group">
                                         <label className="filter-label">ID</label>
@@ -714,6 +756,7 @@ function AdminPanel({ onLogout, isMainTab }) {
                                                 }}
                                             >
                                                 <option value="eq">Equals</option>
+                                                <option value="neq">Not equals</option>
                                                 <option value="gt">Greater than</option>
                                                 <option value="lt">Less than</option>
                                                 <option value="gte">Greater or equal</option>
@@ -729,6 +772,48 @@ function AdminPanel({ onLogout, isMainTab }) {
                                                 onChange={(e) => {
                                                     const operator = tempUserFilters.id_operator || 'eq';
                                                     handleUserFilterChange(`id_${operator}`, e.target.value);
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Username Filters */}
+                                    <div className="filter-group">
+                                        <label className="filter-label">Username</label>
+                                        <div className="filter-input-group">
+                                            <select 
+                                                className="filter-operator-select"
+                                                value={tempUserFilters.username_operator || 'contains'}
+                                                onChange={(e) => {
+                                                    const operator = e.target.value;
+                                                    const currentValue = tempUserFilters[Object.keys(tempUserFilters).find(key => key.startsWith('username_'))] || '';
+                                                    // Remove old username filter
+                                                    const newFilters = { ...tempUserFilters };
+                                                    Object.keys(newFilters).forEach(key => {
+                                                        if (key.startsWith('username_')) delete newFilters[key];
+                                                    });
+                                                    if (currentValue) {
+                                                        newFilters[`username_${operator}`] = currentValue;
+                                                    }
+                                                    newFilters.username_operator = operator;
+                                                    setTempUserFilters(newFilters);
+                                                }}
+                                            >
+                                                <option value="eq">Equals</option>
+                                                <option value="neq">Not equals</option>
+                                                <option value="contains">Contains</option>
+                                                <option value="starts_with">Starts with</option>
+                                                <option value="ends_with">Ends with</option>
+                                                <option value="not_contains">Not contains</option>
+                                            </select>
+                                            <input
+                                                type="text"
+                                                className="filter-input"
+                                                placeholder="Enter username..."
+                                                value={tempUserFilters[Object.keys(tempUserFilters).find(key => key.startsWith('username_') && key !== 'username_operator')] || ''}
+                                                onChange={(e) => {
+                                                    const operator = tempUserFilters.username_operator || 'contains';
+                                                    handleUserFilterChange(`username_${operator}`, e.target.value);
                                                 }}
                                             />
                                         </div>
@@ -914,18 +999,62 @@ function AdminPanel({ onLogout, isMainTab }) {
                                 <h4 className="filter-section-title">🔍 Advanced Filters</h4>
                                 
                                 <div className="filter-grid">
+                                    {/* ID Filters */}
+                                    <div className="filter-group">
+                                        <label className="filter-label">ID</label>
+                                        <div className="filter-input-group">
+                                            <select 
+                                                className="filter-operator-select"
+                                                value={tempFormFilters.id_operator || 'eq'}
+                                                onChange={(e) => {
+                                                    const operator = e.target.value;
+                                                    const currentValue = tempFormFilters[Object.keys(tempFormFilters).find(key => key.startsWith('id_'))] || '';
+                                                    // Remove old id filter
+                                                    const newFilters = { ...tempFormFilters };
+                                                    Object.keys(newFilters).forEach(key => {
+                                                        if (key.startsWith('id_')) delete newFilters[key];
+                                                    });
+                                                    if (currentValue) {
+                                                        newFilters[`id_${operator}`] = currentValue;
+                                                    }
+                                                    newFilters.id_operator = operator;
+                                                    setTempFormFilters(newFilters);
+                                                }}
+                                            >
+                                                <option value="eq">Equals</option>
+                                                <option value="neq">Not equals</option>
+                                                <option value="gt">Greater than</option>
+                                                <option value="lt">Less than</option>
+                                                <option value="gte">Greater or equal</option>
+                                                <option value="lte">Less or equal</option>
+                                                <option value="in">In list (1,2,3)</option>
+                                                <option value="not_in">Not in list</option>
+                                            </select>
+                                            <input
+                                                type="text"
+                                                className="filter-input"
+                                                placeholder="Enter ID..."
+                                                value={tempFormFilters[Object.keys(tempFormFilters).find(key => key.startsWith('id_') && key !== 'id_operator')] || ''}
+                                                onChange={(e) => {
+                                                    const operator = tempFormFilters.id_operator || 'eq';
+                                                    handleFormFilterChange(`id_${operator}`, e.target.value);
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+
                                     {/* Title Filters */}
                                     <div className="filter-group">
                                         <label className="filter-label">Title</label>
                                         <div className="filter-input-group">
                                             <select 
                                                 className="filter-operator-select"
-                                                value={formFilters.title_operator || 'contains'}
+                                                value={tempFormFilters.title_operator || 'contains'}
                                                 onChange={(e) => {
                                                     const operator = e.target.value;
-                                                    const currentValue = formFilters[Object.keys(formFilters).find(key => key.startsWith('title_'))] || '';
+                                                    const currentValue = tempFormFilters[Object.keys(tempFormFilters).find(key => key.startsWith('title_'))] || '';
                                                     // Remove old title filter
-                                                    const newFilters = { ...formFilters };
+                                                    const newFilters = { ...tempFormFilters };
                                                     Object.keys(newFilters).forEach(key => {
                                                         if (key.startsWith('title_')) delete newFilters[key];
                                                     });
@@ -933,22 +1062,23 @@ function AdminPanel({ onLogout, isMainTab }) {
                                                         newFilters[`title_${operator}`] = currentValue;
                                                     }
                                                     newFilters.title_operator = operator;
-                                                    setFormFilters(newFilters);
+                                                    setTempFormFilters(newFilters);
                                                 }}
                                             >
                                                 <option value="eq">Equals</option>
+                                                <option value="neq">Not equals</option>
                                                 <option value="contains">Contains</option>
+                                                <option value="not_contains">Not contains</option>
                                                 <option value="starts_with">Starts with</option>
                                                 <option value="ends_with">Ends with</option>
-                                                <option value="not_contains">Not contains</option>
                                             </select>
                                             <input
                                                 type="text"
                                                 className="filter-input"
                                                 placeholder="Enter title..."
-                                                value={formFilters[Object.keys(formFilters).find(key => key.startsWith('title_') && key !== 'title_operator')] || ''}
+                                                value={tempFormFilters[Object.keys(tempFormFilters).find(key => key.startsWith('title_') && key !== 'title_operator')] || ''}
                                                 onChange={(e) => {
-                                                    const operator = formFilters.title_operator || 'contains';
+                                                    const operator = tempFormFilters.title_operator || 'contains';
                                                     handleFormFilterChange(`title_${operator}`, e.target.value);
                                                 }}
                                             />
@@ -961,12 +1091,12 @@ function AdminPanel({ onLogout, isMainTab }) {
                                         <div className="filter-input-group">
                                             <select 
                                                 className="filter-operator-select"
-                                                value={formFilters.description_operator || 'contains'}
+                                                value={tempFormFilters.description_operator || 'contains'}
                                                 onChange={(e) => {
                                                     const operator = e.target.value;
-                                                    const currentValue = formFilters[Object.keys(formFilters).find(key => key.startsWith('description_'))] || '';
+                                                    const currentValue = tempFormFilters[Object.keys(tempFormFilters).find(key => key.startsWith('description_'))] || '';
                                                     // Remove old description filter
-                                                    const newFilters = { ...formFilters };
+                                                    const newFilters = { ...tempFormFilters };
                                                     Object.keys(newFilters).forEach(key => {
                                                         if (key.startsWith('description_')) delete newFilters[key];
                                                     });
@@ -974,68 +1104,52 @@ function AdminPanel({ onLogout, isMainTab }) {
                                                         newFilters[`description_${operator}`] = currentValue;
                                                     }
                                                     newFilters.description_operator = operator;
-                                                    setFormFilters(newFilters);
+                                                    setTempFormFilters(newFilters);
                                                 }}
                                             >
                                                 <option value="eq">Equals</option>
+                                                <option value="neq">Not equals</option>
                                                 <option value="contains">Contains</option>
+                                                <option value="not_contains">Not contains</option>
                                                 <option value="starts_with">Starts with</option>
                                                 <option value="ends_with">Ends with</option>
-                                                <option value="not_contains">Not contains</option>
                                             </select>
                                             <input
                                                 type="text"
                                                 className="filter-input"
                                                 placeholder="Enter description..."
-                                                value={formFilters[Object.keys(formFilters).find(key => key.startsWith('description_') && key !== 'description_operator')] || ''}
+                                                value={tempFormFilters[Object.keys(tempFormFilters).find(key => key.startsWith('description_') && key !== 'description_operator')] || ''}
                                                 onChange={(e) => {
-                                                    const operator = formFilters.description_operator || 'contains';
+                                                    const operator = tempFormFilters.description_operator || 'contains';
                                                     handleFormFilterChange(`description_${operator}`, e.target.value);
                                                 }}
                                             />
                                         </div>
                                     </div>
 
-                                    {/* ID Filters */}
+                                    {/* Sort Controls */}
                                     <div className="filter-group">
-                                        <label className="filter-label">ID</label>
+                                        <label className="filter-label">Sort By</label>
                                         <div className="filter-input-group">
                                             <select 
                                                 className="filter-operator-select"
-                                                value={formFilters.id_operator || 'eq'}
-                                                onChange={(e) => {
-                                                    const operator = e.target.value;
-                                                    const currentValue = formFilters[Object.keys(formFilters).find(key => key.startsWith('id_'))] || '';
-                                                    // Remove old id filter
-                                                    const newFilters = { ...formFilters };
-                                                    Object.keys(newFilters).forEach(key => {
-                                                        if (key.startsWith('id_')) delete newFilters[key];
-                                                    });
-                                                    if (currentValue) {
-                                                        newFilters[`id_${operator}`] = currentValue;
-                                                    }
-                                                    newFilters.id_operator = operator;
-                                                    setFormFilters(newFilters);
-                                                }}
+                                                value={tempFormSort.sortBy}
+                                                onChange={(e) => handleFormSortChange(e.target.value, tempFormSort.sortDirection)}
                                             >
-                                                <option value="eq">Equals</option>
-                                                <option value="gt">Greater than</option>
-                                                <option value="lt">Less than</option>
-                                                <option value="gte">Greater or equal</option>
-                                                <option value="lte">Less or equal</option>
-                                                <option value="in">In list (1,2,3)</option>
-                                                <option value="not_in">Not in list</option>
+                                                <option value="id">ID</option>
+                                                <option value="title">Title</option>
+                                                <option value="description">Description</option>
+                                                <option value="createdAt">Created Date</option>
+                                                <option value="updatedAt">Updated Date</option>
                                             </select>
-                                            <input
-                                                type="text"
+                                            <select
                                                 className="filter-input"
-                                                placeholder="Enter ID..."
-                                                value={formFilters[Object.keys(formFilters).find(key => key.startsWith('id_') && key !== 'id_operator')] || ''}
-                                                onChange={(e) => {
-                                                    const operator = formFilters.id_operator || 'eq';
-                                                    handleFormFilterChange(`id_${operator}`, e.target.value);
-                                                }}
-                                            />
+                                                value={tempFormSort.sortDirection}
+                                                onChange={(e) => handleFormSortChange(tempFormSort.sortBy, e.target.value)}
+                                            >
+                                                <option value="asc">Ascending ↑</option>
+                                                <option value="desc">Descending ↓</option>
+                                            </select>
                                         </div>
                                     </div>
                                 </div>

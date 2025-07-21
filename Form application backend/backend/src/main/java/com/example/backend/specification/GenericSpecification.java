@@ -1,8 +1,9 @@
-
 // src/main/java/com/example/backend/specification/GenericSpecification.java
 package com.example.backend.specification;
 
 import com.example.backend.dto.FilterCriteria;
+import com.example.backend.model.ERole;
+import com.example.backend.model.Role;
 import org.springframework.data.jpa.domain.Specification;
 
 import jakarta.persistence.criteria.*;
@@ -21,7 +22,9 @@ public class GenericSpecification {
                 // Log the error and return a predicate that matches nothing
                 System.err.println("Error building predicate for field: " + criteria.getField() +
                         ", operator: " + criteria.getOperator() +
+                        ", value: " + criteria.getValue() +
                         ", error: " + e.getMessage());
+                e.printStackTrace();
                 return criteriaBuilder.disjunction(); // Always false
             }
         };
@@ -32,6 +35,8 @@ public class GenericSpecification {
         String operator = criteria.getOperator().toLowerCase();
         Object value = criteria.getValue();
 
+        System.out.println("Building predicate for field: " + field + ", operator: " + operator + ", value: " + value);
+
         // Handle nested fields (e.g., "user.username", "question.form.id")
         Path<?> path = getPath(root, field);
 
@@ -41,13 +46,87 @@ public class GenericSpecification {
             case "neq":
                 return cb.notEqual(path, convertValue(value, path.getJavaType()));
             case "contains":
-                return cb.like(cb.lower(path.as(String.class)), "%" + value.toString().toLowerCase() + "%");
+                // Special handling for roles field
+                if ("roles".equals(field)) {
+                    System.out.println("Handling roles contains filter with value: " + value);
+                    try {
+                        // Convert string to ERole enum
+                        ERole roleEnum = ERole.valueOf(value.toString());
+
+                        // Create a join to the roles collection
+                        Join<Object, Role> rolesJoin = root.join("roles", JoinType.INNER);
+                        return cb.equal(rolesJoin.get("name"), roleEnum);
+                    } catch (IllegalArgumentException e) {
+                        System.err.println("Invalid role value: " + value);
+                        return cb.disjunction(); // Return false predicate
+                    }
+                }
+                // Check if this is a collection field
+                else if (isCollectionField(path)) {
+                    // For collections, use EXISTS with subquery
+                    Subquery<Long> subquery = cb.createQuery().subquery(Long.class);
+                    Root<?> subRoot = subquery.from(root.getJavaType());
+                    Join<?, ?> collectionJoin = subRoot.join(field);
+                    subquery.select(subRoot.get("id")); // Fixed: select id instead of root
+                    subquery.where(cb.equal(collectionJoin, value));
+                    return cb.exists(subquery);
+                } else {
+                    // For string fields, use like
+                    if (path.getJavaType() == String.class) {
+                        return cb.like(cb.lower(path.as(String.class)), "%" + value.toString().toLowerCase() + "%");
+                    } else {
+                        return cb.like(cb.lower(cb.function("str", String.class, path)), "%" + value.toString().toLowerCase() + "%");
+                    }
+                }
             case "not_contains":
-                return cb.notLike(cb.lower(path.as(String.class)), "%" + value.toString().toLowerCase() + "%");
+                if ("roles".equals(field)) {
+                    try {
+                        ERole roleEnum = ERole.valueOf(value.toString());
+
+                        // Create a subquery to check if user does NOT have this role
+                        Subquery<Long> subquery = cb.createQuery().subquery(Long.class);
+                        Root<?> subRoot = subquery.from(root.getJavaType());
+                        Join<Object, Role> rolesJoin = subRoot.join("roles", JoinType.LEFT);
+                        subquery.select(subRoot.get("id"));
+                        subquery.where(
+                                cb.and(
+                                        cb.equal(subRoot.get("id"), root.get("id")),
+                                        cb.equal(rolesJoin.get("name"), roleEnum)
+                                )
+                        );
+                        return cb.not(cb.exists(subquery));
+                    } catch (IllegalArgumentException e) {
+                        System.err.println("Invalid role value: " + value);
+                        return cb.conjunction(); // Return true predicate
+                    }
+                }
+                else if (isCollectionField(path)) {
+                    // For collections, use NOT EXISTS with subquery
+                    Subquery<Long> subquery = cb.createQuery().subquery(Long.class);
+                    Root<?> subRoot = subquery.from(root.getJavaType());
+                    Join<?, ?> collectionJoin = subRoot.join(field);
+                    subquery.select(subRoot.get("id"));
+                    subquery.where(cb.equal(collectionJoin, value));
+                    return cb.not(cb.exists(subquery));
+                } else {
+                    if (path.getJavaType() == String.class) {
+                        return cb.not(cb.like(cb.lower(path.as(String.class)), "%" + value.toString().toLowerCase() + "%"));
+                    } else {
+                        return cb.not(cb.like(cb.lower(cb.function("str", String.class, path)), "%" + value.toString().toLowerCase() + "%"));
+                    }
+                }
             case "starts_with":
-                return cb.like(cb.lower(path.as(String.class)), value.toString().toLowerCase() + "%");
+                if (path.getJavaType() == String.class) {
+                    return cb.like(cb.lower(path.as(String.class)), value.toString().toLowerCase() + "%");
+                } else {
+                    return cb.like(cb.lower(cb.function("str", String.class, path)), value.toString().toLowerCase() + "%");
+                }
             case "ends_with":
-                return cb.like(cb.lower(path.as(String.class)), "%" + value.toString().toLowerCase());
+                if (path.getJavaType() == String.class) {
+                    return cb.like(cb.lower(path.as(String.class)), "%" + value.toString().toLowerCase());
+                } else {
+                    return cb.like(cb.lower(cb.function("str", String.class, path)), "%" + value.toString().toLowerCase());
+                }
             case "is_null":
                 return cb.isNull(path);
             case "is_not_null":
@@ -89,6 +168,13 @@ public class GenericSpecification {
         }
 
         return path;
+    }
+
+    private static boolean isCollectionField(Path<?> path) {
+        Class<?> javaType = path.getJavaType();
+        return java.util.Collection.class.isAssignableFrom(javaType) ||
+                java.util.Set.class.isAssignableFrom(javaType) ||
+                java.util.List.class.isAssignableFrom(javaType);
     }
 
     private static Object convertValue(Object value, Class<?> targetType) {
